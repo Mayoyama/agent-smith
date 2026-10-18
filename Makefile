@@ -6,4 +6,8 @@ lint:
 	uv run python -m flake8 . ${FLAKE8_EXCLUDES}
 	uv run python -m mypy . ${MYPY_FLAGS} ${MYPY_EXCLUDES}
 
-.PHONY: lint
+clean:
+	find . -not -path './.venv/*' -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" \)  -exec rm -rf {} +
+	find . -type f \( -name "*.pyo" -o -name "*.pyc" -o -name "*~" \) -delete
+
+.PHONY: lint clean
