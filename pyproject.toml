@@ -13,3 +13,16 @@ dev = [
     "flake8>=7.4.1",
     "mypy>=2.4.0",
 ]
+
+# creates the sandbox command and points it to repl() in sandbox/repl.py (module.path:function)
+[project.scripts]
+sandbox = "sandbox.repl:repl"
+
+# tells UV how to install the project as a package
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# hatchling looks for packages by name (list all top level packages here)
+[tool.hatch.build.targets.wheel]
+packages = ["sandbox", "common", "agent_mbpp", "agent_swebench"]
