@@ -1,5 +1,7 @@
 # Project-related files
 agent_smith_subject.md
+admin/
+moulinette/
 
 # Python-generated files
 __pycache__/
