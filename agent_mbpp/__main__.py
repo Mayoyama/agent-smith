@@ -1,3 +1,4 @@
+"""Entry point for the MBPP agent."""
 from common.models_public import MBPPTaskInput
 from common.task_loader import loader, setup_parser
 from argparse import ArgumentParser

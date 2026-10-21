@@ -1,3 +1,4 @@
+"""Entry point for the SWE bench agent."""
 from common.models_public import SWEBenchTaskInput
 from common.task_loader import loader, setup_parser
 from argparse import ArgumentParser

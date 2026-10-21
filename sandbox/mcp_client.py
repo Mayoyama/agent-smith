@@ -1,3 +1,4 @@
+"""Sync MCP client running its async session in a background thread."""
 from concurrent.futures import Future
 from typing import Any
 import os
@@ -17,9 +18,19 @@ except ImportError as e:
 
 
 class MCPClient:
-    """Keeps one MCP connection open in a background event loop."""
+    """Synchronous wrapper around an async MCP client session.
+
+    The session runs on an event loop in a background daemon thread,
+    so sandbox code can call tools without using asyncio.
+
+    Attributes:
+        session: The active MCP ClientSession, or None.
+        tools_list: Tools reported by the server after connecting.
+    """
 
     def __init__(self) -> None:
+        """Create the event loop, thread and connection signals."""
+
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.session: ClientSession | None = None
@@ -30,10 +41,22 @@ class MCPClient:
         self._error: BaseException | None = None
 
     def _run_loop(self) -> None:
+        """Run the event loop forever in the background thread."""
+
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
     def connect_stdio(self, command: str) -> None:
+        """Start an MCP server as a subprocess and connect over stdio.
+
+        Args:
+            command: Shell command that launches the server.
+
+        Raises:
+            TimeoutError: If the connection is not ready within 30 s.
+            RuntimeError: If connecting or initialising fails.
+        """
+
         parts = shlex.split(command)
         params = StdioServerParameters(
             command=parts[0],
@@ -52,6 +75,12 @@ class MCPClient:
             raise RuntimeError(f"MCP connection failure: {self._error}")
 
     async def _hold_connection(self, params: StdioServerParameters) -> None:
+        """Open a stdio session, list tools, then wait for close().
+
+        Args:
+            params: How to launch the server process.
+        """
+
         try:
             async with stdio_client(params) as (read, write):
                 async with ClientSession(read, write) as session:
@@ -71,6 +100,16 @@ class MCPClient:
             self._ready_signal.set()
 
     def connect_http(self, url: str) -> None:
+        """Connect to an MCP server over streamable HTTP.
+
+        Args:
+            url: Server endpoint URL.
+
+        Raises:
+            TimeoutError: If the connection is not ready within 30 s.
+            RuntimeError: If connecting or initialising fails.
+        """
+
         self.thread.start()
         self._thread_holder = asyncio.run_coroutine_threadsafe(
             self._hold_http(url), self.loop)
@@ -82,6 +121,12 @@ class MCPClient:
             raise RuntimeError(f"MCP connection failure: {self._error}")
 
     async def _hold_http(self, url: str) -> None:
+        """Open an HTTP session, list tools, then wait for close().
+
+        Args:
+            url: Server endpoint URL.
+        """
+
         try:
             async with streamable_http_client(url) as (read, write):
                 async with ClientSession(read, write) as session:
@@ -101,6 +146,17 @@ class MCPClient:
             self._ready_signal.set()
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        """Call a tool on the server and return its result as text.
+
+        Args:
+            name: Tool name.
+            arguments: Keyword arguments for the tool.
+
+        Returns:
+            The text content joined together, prefixed with
+            "Tool error: " if the server flagged an error.
+        """
+
         if self.session is None:
             raise RuntimeError("Session not connected")
 
@@ -125,6 +181,8 @@ class MCPClient:
         return text
 
     def close(self) -> None:
+        """Signal the session to close, then stop the loop and thread."""
+
         if self._stop_signal is not None:
             try:
                 self.loop.call_soon_threadsafe(self._stop_signal.set)
