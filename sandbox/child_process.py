@@ -10,6 +10,7 @@ from .security import Security
 import traceback
 import resource
 import signal
+
 import io
 
 
@@ -41,6 +42,8 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
 
     bytes_limit = config.max_memory_mb * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_AS, (bytes_limit, bytes_limit))
+
+    process_protections.replace_socket()
 
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 

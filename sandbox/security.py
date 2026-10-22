@@ -1,8 +1,9 @@
 """Restrictions applied to code running in the sandbox worker."""
 from common import SandboxConfig
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, NoReturn
 from types import ModuleType
 import builtins
+import socket
 import os
 
 
@@ -146,6 +147,14 @@ class Security:
         safe_to_use["open"] = self.open_file
 
         return safe_to_use
+
+    @staticmethod
+    def handle_socket(*args: Any, **kwargs: Any) -> NoReturn:
+        raise PermissionError("network access not allowed")
+
+    def replace_socket(self) -> None:
+        setattr(socket, "socket", self.handle_socket)
+        setattr(socket, "getaddrinfo", self.handle_socket)
 
     def open_file(self, path: str, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(path, str):
