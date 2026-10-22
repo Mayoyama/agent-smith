@@ -6,8 +6,10 @@ from typing import Any, Callable
 from common import SandboxConfig, ToolCall, ToolResult
 from .final_answer import FinalAnswer, send_final_answer
 from .results import Results
+from .security import Security
 import traceback
 import resource
+import builtins
 import signal
 import io
 
@@ -16,17 +18,25 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
                   tool_names: list[str]) -> None:
     """Run received code in a persistent namespace until told to stop.
 
-    Adds final_answer and one wrapper per tool to the namespace,
-    sets the memory limit and ignores Ctrl+C, then executes each
-    message and sends back a Results. A None message ends the loop.
+    Gives the namespace builtins with a restricted __import__, adds
+    final_answer and one wrapper per tool, sets the memory limit and
+    ignores Ctrl+C, then executes each message and sends back a
+    Results. A None message ends the loop.
 
     Args:
         conn: Child end of the pipe to the parent.
-        config: Sandbox config, used for the memory limit.
+        config: Sandbox config, used for the import allowlist and the
+            memory limit.
         tool_names: Names of the MCP tools to expose as functions.
     """
 
+    process_protections = Security(config)
+    builtins_dict = builtins.__dict__.copy()
+    builtins_dict["__import__"] = process_protections.safe_import
+    builtins_dict["open"] = process_protections.open_file
+
     namespace: dict[str, Any] = {}
+    namespace["__builtins__"] = builtins_dict
     namespace["final_answer"] = send_final_answer
     for tool in tool_names:
         namespace[tool] = make_tool_function(conn, tool)
