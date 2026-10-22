@@ -59,6 +59,7 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
 
         try:
             with redirect_stdout(buffer):
+                process_protections.ast_parse(msg)
                 exec(msg, namespace)
 
         except FinalAnswer as fa:

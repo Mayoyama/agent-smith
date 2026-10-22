@@ -4,6 +4,7 @@ from typing import Any, Mapping, Sequence, NoReturn
 from types import ModuleType
 import builtins
 import socket
+import ast
 import os
 
 
@@ -28,6 +29,17 @@ BUILTINS_WHITELIST: list[str] = [
 
     # other
     "NotImplemented", "Ellipsis", "__build_class__", "dir",
+]
+
+
+DUNDERS_WHITELIST: list[str] = [
+    "__init__", "__name__", "__doc__", "__str__", "__repr__",
+]
+
+
+ATTRIBUTE_BLACKLIST: list[str] = [
+    "f_back", "f_globals", "f_locals", "f_builtins", "f_code",
+    "gi_frame", "gi_code", "cr_frame", "ag_frame", "tb_frame", "tb_next"
 ]
 
 
@@ -168,3 +180,26 @@ class Security:
                 return builtins.open(real_path, *args, **kwargs)
 
         raise PermissionError(f"access to {path} is not allowed")
+
+    def ast_parse(self, code: str) -> None:
+        tree = ast.parse(code)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                name = node.id
+
+                is_dunder = name.startswith("__") and name.endswith("__")
+
+                if is_dunder and name != "__name__":
+                    raise PermissionError(f"access to '{name}' is not allowed")
+
+            if isinstance(node, ast.Attribute):
+                name = node.attr
+
+                is_dunder = name.startswith("__") and name.endswith("__")
+
+                if is_dunder and name not in DUNDERS_WHITELIST:
+                    raise PermissionError(f"access to '{name}' is not allowed")
+
+                if name in ATTRIBUTE_BLACKLIST:
+                    raise PermissionError(f"access to '{name}' is not allowed")
