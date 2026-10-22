@@ -5,7 +5,8 @@ from argparse import ArgumentParser
 from typing import TypeVar
 from sys import stderr
 
-# Generic type for any Pydantic model, so loader returns the model it was given.
+# Generic type for any Pydantic model,
+# so loader returns the model it was given.
 T = TypeVar("T", bound=BaseModel)
 
 

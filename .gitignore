@@ -2,6 +2,7 @@
 agent_smith_subject.md
 admin/
 moulinette/
+.vscode
 
 # Python-generated files
 __pycache__/

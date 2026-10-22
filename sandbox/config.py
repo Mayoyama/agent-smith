@@ -11,7 +11,7 @@ def get_default_config() -> SandboxConfig:
         SandboxConfig: Config with the default import allowlist,
             allowed directories, 30 s timeout and 512 MB memory limit.
     """
-    
+
     authorized_imports: list[str] = [
         "math", "math.*",
         "collections", "collections.*",
@@ -39,6 +39,7 @@ def get_default_config() -> SandboxConfig:
         max_memory_mb=max_memory_mb,
     )
 
+
 def load_config_or_defaults(config_path: str | None = None) -> SandboxConfig:
     """Load the sandbox config from a JSON file, or use the defaults.
 
@@ -64,4 +65,3 @@ def load_config_or_defaults(config_path: str | None = None) -> SandboxConfig:
     except (OSError, ValidationError) as e:
         print(f"Config error: {e}.\nExiting.", file=sys.stderr)
         sys.exit(1)
-        

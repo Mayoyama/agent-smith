@@ -17,7 +17,7 @@ class FinalAnswer(BaseException):
         Args:
             value: The answer passed to final_answer().
         """
-        
+
         super().__init__(value)
         self.value = value
 

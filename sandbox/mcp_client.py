@@ -153,8 +153,11 @@ class MCPClient:
             arguments: Keyword arguments for the tool.
 
         Returns:
-            The text content joined together, prefixed with
-            "Tool error: " if the server flagged an error.
+            The text content joined together.
+
+        Raises:
+            RuntimeError: If the session is not connected or the
+                server flagged the call as an error.
         """
 
         if self.session is None:
@@ -176,7 +179,7 @@ class MCPClient:
         text = "\n".join(parts)
 
         if result.is_error:
-            return f"Tool error: {text}"
+            raise RuntimeError(f"Tool error: {text}")
 
         return text
 

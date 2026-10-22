@@ -1,11 +1,12 @@
 """Sandbox running code in a worker process with time and memory limits."""
-from typing import Any, Callable
-from common import SandboxConfig
+
+from common import SandboxConfig, ToolCall, ToolResult
 from .results import Results
 from .mcp_client import MCPClient
 from .child_process import child_process
 from multiprocessing.connection import Connection
 import multiprocessing
+import time
 
 
 class Sandbox:
@@ -13,6 +14,8 @@ class Sandbox:
 
     Attributes:
         config: Sandbox limits and allowlists.
+        client: Connected MCP client, or None.
+        tool_names: MCP tool names exposed in the worker.
         conn: Parent end of the pipe to the worker.
         process: The worker process.
     """
@@ -25,6 +28,8 @@ class Sandbox:
         """
 
         self.config = config
+        self.client: MCPClient | None = None
+        self.tool_names: list[str] = []
         self.conn, self.process = self._start_new_process()
 
     def _start_new_process(self) -> tuple[Connection, multiprocessing.Process]:
@@ -36,7 +41,11 @@ class Sandbox:
 
         parent_conn, child_conn = multiprocessing.Pipe()
         process = multiprocessing.Process(
-            target=child_process, args=(child_conn,self.config), daemon=True)
+            target=child_process,
+            args=(child_conn, self.config, self.tool_names),
+            daemon=True
+        )
+
         process.start()
 
         child_conn.close()
@@ -74,83 +83,120 @@ class Sandbox:
         except BrokenPipeError as e:
             error_msg = f"Sandbox process crashed({e}), state was reset"
             self.restart_child_process()
-            
+
             return Results(
                 error=error_msg,
                 state_reset=True,
             )
 
-            
-        ok = self.conn.poll(self.config.max_execution_time_seconds)
+        return self._wait_for_result()
 
-        if not ok:
+    def _wait_for_result(self) -> Results:
+        time_left: float = self.config.max_execution_time_seconds
+
+        while True:
+            before = time.monotonic()
+            got_res = self.conn.poll(time_left)
+            after = time.monotonic()
+
+            time_left -= (after - before)
+
+            if not got_res:
+                self.restart_child_process()
+
+                error_msg = (
+                    "Execution timed out after "
+                    f"{self.config.max_execution_time_seconds} seconds"
+                )
+
+                return Results(
+                    error=error_msg,
+                    timed_out=True,
+                    state_reset=True,
+                )
+
+            try:
+                msg = self.conn.recv()
+
+            except EOFError:
+                error_msg = "Sandbox process crashed, state was reset"
+                self.restart_child_process()
+
+                return Results(
+                    error=error_msg,
+                    state_reset=True,
+                )
+
+            if isinstance(msg, Results):
+                return msg
+
+            if isinstance(msg, ToolCall):
+                if self.client is None:
+                    tool_result = ToolResult(
+                        text="no MCP server connected",
+                        is_error=True,
+                    )
+
+                else:
+                    try:
+                        res = self.client.call_tool(msg.tool_name, msg.args)
+                        tool_result = ToolResult(
+                            text=res,
+                            is_error=False,
+                        )
+
+                    except Exception as e:
+                        tool_result = ToolResult(
+                            text=str(e),
+                            is_error=True,
+                        )
+
+                try:
+                    self.conn.send(tool_result)
+
+                except BrokenPipeError:
+                    error_msg = "Sandbox process crashed, state was reset."
+                    self.restart_child_process()
+
+                    return Results(
+                        error=error_msg,
+                        state_reset=True,
+                    )
+
+                continue
+
+            error_msg = (
+                "Unexpected message from sandbox process, state "
+                "was reset"
+            )
+
             self.restart_child_process()
 
-            error_msg = ("Execution timed out after "
-                         f"{self.config.max_execution_time_seconds} seconds")
-
-            return Results(
-                error=error_msg,
-                timed_out=True,
-                state_reset=True,
-            )
-
-        try:
-            received = self.conn.recv()
-
-        except EOFError:
-            error_msg = f"Sandbox process crashed, state was reset"
-            self.restart_child_process()
-            
             return Results(
                 error=error_msg,
                 state_reset=True,
             )
 
-        return received
+    def add_tools(self, client: MCPClient) -> None:
+        """Store the client and tool names, then restart the worker.
 
-    def _make_tool_function(self, client: MCPClient, tool_name: str
-                            ) -> Callable[..., str]:
-        """Wrap one MCP tool as a plain function.
+        The new worker starts with one function per tool. A server
+        tool named final_answer is skipped so it cannot replace the
+        built-in one.
 
         Args:
             client: Connected MCP client.
-            tool_name: Name of the tool to wrap.
-
-        Returns:
-            A function that forwards keyword arguments to the tool.
         """
 
-        def tool_function(**kwargs: Any) -> str:
-            """Call the wrapped MCP tool.
+        self.client = client
 
-            Args:
-                **kwargs: Arguments passed straight to the tool.
+        for tool in client.tools_list:
+            if tool.name == "final_answer":
+                continue
 
-            Returns:
-                The tool's result as text.
-            """
+            self.tool_names.append(tool.name)
 
-            return client.call_tool(tool_name, kwargs)
-
-        return tool_function
-
-    #def add_tools(self, client: MCPClient) -> None:
-    #    """Inject every server tool into the namespace as a function.
-
-    #    A server tool named final_answer is skipped so it cannot
-    #    replace the built-in one.
-
-    #    Args:
-    #        client: Connected MCP client.
-    #    """
-
-    #    for tool in client.tools_list:
-    #        if tool.name == "final_answer":
-    #            continue
-
-    #        self.namespace[tool.name] = self._make_tool_function(
-    #            client, tool.name)
+        self.restart_child_process()
 
     def get_manual(self, client: MCPClient | None = None) -> str:
         """List the functions available to sandboxed code.
@@ -162,7 +208,8 @@ class Sandbox:
             One line per function: name, parameters and description.
         """
 
-        manual_string = "final_answer(answer: str): submit your final answer and end the task.\n"
+        manual_string = ("final_answer(answer: str): submit your final answer "
+                         "and end the task.\n")
 
         if client is not None:
             for tool in client.tools_list:
@@ -174,11 +221,13 @@ class Sandbox:
                 param_strings: list[str] = []
 
                 for param_name, param_info in properties.items():
-                    param_strings.append(f"{param_name}: {param_info.get('type', 'any')}")
+                    param_strings.append(
+                        f"{param_name}: {param_info.get('type', 'any')}")
 
                 desc = tool.description if tool.description is not None else ''
 
-                tool_string = f"{tool.name}({', '.join(param_strings)}): {desc}"
+                tool_string = (f"{tool.name}({', '.join(param_strings)}): "
+                               f"{desc}")
 
                 manual_string += f"{tool_string}\n"
 

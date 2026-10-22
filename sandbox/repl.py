@@ -26,8 +26,6 @@ def repl() -> None:
     sandbox = Sandbox(config)
     mcp_client: MCPClient | None = None
 
-
-    
     try:
         if args.mcp_stdio:
             mcp_client = MCPClient()
