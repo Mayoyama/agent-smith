@@ -9,7 +9,6 @@ from .results import Results
 from .security import Security
 import traceback
 import resource
-import builtins
 import signal
 import io
 
@@ -31,13 +30,12 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
     """
 
     process_protections = Security(config)
-    builtins_dict = builtins.__dict__.copy()
-    builtins_dict["__import__"] = process_protections.safe_import
-    builtins_dict["open"] = process_protections.open_file
+    builtins_dict = process_protections.build_builtins_whitelist()
 
     namespace: dict[str, Any] = {}
     namespace["__builtins__"] = builtins_dict
     namespace["final_answer"] = send_final_answer
+    namespace["__name__"] = "sandbox"
     for tool in tool_names:
         namespace[tool] = make_tool_function(conn, tool)
 

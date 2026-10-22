@@ -6,6 +6,30 @@ import builtins
 import os
 
 
+BUILTINS_WHITELIST: list[str] = [
+    # output and conversions
+    "print", "repr", "str", "int", "float", "bool", "complex",
+    "chr", "ord", "hex", "bin", "oct", "format", "memoryview",
+
+    # iterables and containers
+    "list", "dict", "set", "frozenset", "tuple", "map", "bytes", "bytearray",
+
+    # iteration
+    "range", "enumerate", "zip", "filter", "reversed", "sorted", "iter",
+    "next", "all", "any", "slice",
+
+    # numbers
+    "abs", "min", "max", "sum", "round", "pow", "divmod", "len", "hash",
+
+    # types and classes
+    "isinstance", "issubclass", "type", "object", "super", "property",
+    "staticmethod", "classmethod", "hasattr", "callable", "id",
+
+    # other
+    "NotImplemented", "Ellipsis", "__build_class__", "dir",
+]
+
+
 class Security:
     """Holds the sandbox allowlists and the restricted builtins.
 
@@ -102,6 +126,26 @@ class Security:
                     return True
 
         return False
+
+    def build_builtins_whitelist(self) -> dict[str, Any]:
+        safe_to_use: dict[str, Any] = {}
+
+        for name in BUILTINS_WHITELIST:
+            safe_to_use[name] = getattr(builtins, name)
+
+        for name in dir(builtins):
+            value = getattr(builtins, name)
+
+            if isinstance(value, type) and issubclass(value, BaseException):
+                if name in ("SystemExit", "KeyboardInterrupt"):
+                    continue
+
+                safe_to_use[name] = value
+
+        safe_to_use["__import__"] = self.safe_import
+        safe_to_use["open"] = self.open_file
+
+        return safe_to_use
 
     def open_file(self, path: str, *args: Any, **kwargs: Any) -> Any:
         if not isinstance(path, str):
