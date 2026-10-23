@@ -2,9 +2,11 @@
 from common import SandboxConfig
 from typing import Any, Mapping, Sequence, NoReturn
 from types import ModuleType
+import importlib
 import builtins
 import socket
 import ast
+import sys
 import os
 
 
@@ -39,7 +41,8 @@ DUNDERS_WHITELIST: list[str] = [
 
 ATTRIBUTE_BLACKLIST: list[str] = [
     "f_back", "f_globals", "f_locals", "f_builtins", "f_code",
-    "gi_frame", "gi_code", "cr_frame", "ag_frame", "tb_frame", "tb_next"
+    "gi_frame", "gi_code", "cr_frame", "ag_frame",
+    "tb_frame", "tb_next", "sys", "modules",
 ]
 
 
@@ -61,6 +64,8 @@ class Security:
         """
 
         self.allow_imports = config.authorized_imports
+        self.module_escapes = self._lockdown_module_escapes()
+
         self.allowed_dirs = config.allowed_directories
         self.resolved_dirs = [os.path.realpath(d) for d in self.allowed_dirs]
 
@@ -201,5 +206,30 @@ class Security:
                 if is_dunder and name not in DUNDERS_WHITELIST:
                     raise PermissionError(f"access to '{name}' is not allowed")
 
-                if name in ATTRIBUTE_BLACKLIST:
+                if name in ATTRIBUTE_BLACKLIST or name in self.module_escapes:
                     raise PermissionError(f"access to '{name}' is not allowed")
+
+    def _lockdown_module_escapes(self) -> set[str]:
+        for permitted in self.allow_imports:
+            if permitted.endswith(".*"):
+                continue
+
+            try:
+                importlib.import_module(permitted)
+            except ImportError:
+                continue
+
+        blocked: set[str] = set()
+
+        for module_name, module in list(sys.modules.items()):
+            if not self.is_allowed(module_name):
+                continue
+
+            for attr_name in dir(module):
+                val = getattr(module, attr_name, None)
+
+                if (isinstance(val, ModuleType)
+                        and not self.is_allowed(val.__name__)):
+                    blocked.add(attr_name)
+
+        return blocked
