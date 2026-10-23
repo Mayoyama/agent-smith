@@ -52,11 +52,15 @@ class Security:
     Attributes:
         allow_imports: Allowed module names; an entry ending in ".*"
             also allows that module's submodules.
+        module_escapes: Attribute names on allowed modules that point
+            to modules outside the allowlist (e.g. "_os", "sys").
         allowed_dirs: Directories sandboxed code may access.
+        resolved_dirs: The allowed directories with symlinks and ".."
+            resolved.
     """
 
     def __init__(self, config: SandboxConfig):
-        """Store the allowlists from the config.
+        """Store the allowlists and find the module escapes.
 
         Args:
             config: Sandbox config with the import and directory
@@ -146,6 +150,16 @@ class Security:
         return False
 
     def build_builtins_whitelist(self) -> dict[str, Any]:
+        """Build the restricted builtins for the sandbox namespace.
+
+        Contains the names in BUILTINS_WHITELIST, every exception class
+        except SystemExit and KeyboardInterrupt, and the restricted
+        __import__ and open.
+
+        Returns:
+            Dict to use as the namespace's __builtins__.
+        """
+
         safe_to_use: dict[str, Any] = {}
 
         for name in BUILTINS_WHITELIST:
@@ -167,13 +181,48 @@ class Security:
 
     @staticmethod
     def handle_socket(*args: Any, **kwargs: Any) -> NoReturn:
+        """Replacement for socket functions that always refuses.
+
+        Args:
+            *args: Ignored.
+            **kwargs: Ignored.
+
+        Raises:
+            PermissionError: Always.
+        """
+
         raise PermissionError("network access not allowed")
 
     def replace_socket(self) -> None:
+        """Block network access in this process.
+
+        Replaces socket.socket and socket.getaddrinfo with
+        handle_socket. Affects the whole process, so it is only called
+        in the worker.
+        """
+
         setattr(socket, "socket", self.handle_socket)
         setattr(socket, "getaddrinfo", self.handle_socket)
 
     def open_file(self, path: str, *args: Any, **kwargs: Any) -> Any:
+        """Open a file if it lies inside an allowed directory.
+
+        Replaces open for sandboxed code. The path is resolved first,
+        so symlinks and ".." cannot leave the allowed directories.
+
+        Args:
+            path: Path of the file to open.
+            *args: Passed on to the real open.
+            **kwargs: Passed on to the real open.
+
+        Returns:
+            The opened file object.
+
+        Raises:
+            PermissionError: If path is not a string or resolves to a
+                location outside the allowed directories.
+        """
+
         if not isinstance(path, str):
             raise PermissionError("only file paths are allowed")
 
@@ -187,6 +236,20 @@ class Security:
         raise PermissionError(f"access to {path} is not allowed")
 
     def ast_parse(self, code: str) -> None:
+        """Reject code that accesses blocked names or attributes.
+
+        Blocks dunder names other than __name__, dunder attributes not
+        in DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST,
+        and the module escapes.
+
+        Args:
+            code: Python source to check.
+
+        Raises:
+            PermissionError: If a blocked name or attribute is used.
+            SyntaxError: If the code cannot be parsed.
+        """
+
         tree = ast.parse(code)
 
         for node in ast.walk(tree):
@@ -210,6 +273,16 @@ class Security:
                     raise PermissionError(f"access to '{name}' is not allowed")
 
     def _lockdown_module_escapes(self) -> set[str]:
+        """Find attributes of allowed modules that lead to other modules.
+
+        Imports the allowed modules, then scans every loaded allowed
+        module for attributes whose value is a module that is not on
+        the allowlist (e.g. random._os is the os module).
+
+        Returns:
+            The names of those attributes.
+        """
+
         for permitted in self.allow_imports:
             if permitted.endswith(".*"):
                 continue

@@ -18,15 +18,16 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
                   tool_names: list[str]) -> None:
     """Run received code in a persistent namespace until told to stop.
 
-    Gives the namespace builtins with a restricted __import__, adds
-    final_answer and one wrapper per tool, sets the memory limit and
-    ignores Ctrl+C, then executes each message and sends back a
-    Results. A None message ends the loop.
+    Gives the namespace restricted builtins, adds final_answer and
+    one wrapper per tool, sets the memory and file size limits, blocks
+    network access and ignores Ctrl+C. Each message is checked with
+    the AST check, executed, and answered with a Results. A None
+    message ends the loop.
 
     Args:
         conn: Child end of the pipe to the parent.
-        config: Sandbox config, used for the import allowlist and the
-            memory limit.
+        config: Sandbox config, used for the import and directory
+            allowlists and the memory limit.
         tool_names: Names of the MCP tools to expose as functions.
     """
 
@@ -41,7 +42,9 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
         namespace[tool] = make_tool_function(conn, tool)
 
     bytes_limit = config.max_memory_mb * 1024 * 1024
+    max_file_bytes = 100 * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_AS, (bytes_limit, bytes_limit))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (max_file_bytes, max_file_bytes))
 
     process_protections.replace_socket()
 
