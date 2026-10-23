@@ -11,7 +11,7 @@ class Results(BaseModel):
         final_ans: Value passed to final_answer(), or None.
         timed_out: True if execution hit the time limit.
         truncated: True if output was cut (not used yet).
-        state_reset: True if the worker was restarted and the
+        state_reset: True if the child was restarted and the
             namespace lost.
     """
 

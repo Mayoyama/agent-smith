@@ -3,7 +3,7 @@ from .models_public import (SandboxConfig, SolutionOutput,
                             SWEBenchTaskInput)
 from .task_loader import (format_err_location, loader,
                           setup_parser)
-from .messages import ToolCall, ToolResult
+from .messages import ToolCall, ToolResult, Output
 
 __all__ = [
     "SandboxConfig",
@@ -16,4 +16,5 @@ __all__ = [
     "setup_parser",
     "ToolResult",
     "ToolCall",
+    "Output",
 ]

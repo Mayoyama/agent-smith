@@ -1,39 +1,41 @@
-"""Sandbox running code in a worker process with time and memory limits."""
+"""Sandbox running code in a child process with time and memory limits."""
 
-from common import SandboxConfig, ToolCall, ToolResult
+from common import SandboxConfig, ToolCall, ToolResult, Output
 from .results import Results
 from .mcp_client import MCPClient
 from .child_process import child_process
+from .output_stream import OutputCollector
 from multiprocessing.connection import Connection
 import multiprocessing
 import time
 
 
 class Sandbox:
-    """Runs code in a worker process whose namespace persists between runs.
+    """Runs code in a child process whose namespace persists between runs.
 
     Attributes:
         config: Sandbox limits and allowlists.
         client: Connected MCP client, or None.
-        tool_names: MCP tool names exposed in the worker.
-        conn: Parent end of the pipe to the worker.
-        process: The worker process.
+        tool_names: MCP tool names exposed in the child.
+        conn: Parent end of the pipe to the child.
+        process: The child process.
     """
 
-    def __init__(self, config: SandboxConfig) -> None:
-        """Store the config and start the worker process.
+    def __init__(self, config: SandboxConfig, buff_limit: int = 10000) -> None:
+        """Store the config and start the child process.
 
         Args:
             config: Sandbox limits and allowlists.
         """
 
+        self.buffer_limit = buff_limit
         self.config = config
         self.client: MCPClient | None = None
         self.tool_names: list[str] = []
         self.conn, self.process = self._start_new_process()
 
     def _start_new_process(self) -> tuple[Connection, multiprocessing.Process]:
-        """Start a worker process connected by a new pipe.
+        """Start a child process connected by a new pipe.
 
         Returns:
             The parent end of the pipe and the started process.
@@ -53,9 +55,9 @@ class Sandbox:
         return parent_conn, process
 
     def restart_child_process(self) -> None:
-        """Kill the current worker and start a fresh one.
+        """Kill the current child and start a fresh one.
 
-        The worker's namespace is lost.
+        The child's namespace is lost.
         """
 
         self.process.terminate()
@@ -65,9 +67,9 @@ class Sandbox:
         self.conn, self.process = self._start_new_process()
 
     def run_exec(self, code: str) -> Results:
-        """Run code in the worker and return its result.
+        """Run code in the child and return its result.
 
-        If the worker times out or dies, it is restarted and the
+        If the child times out or dies, it is restarted and the
         result reports that the state was reset.
 
         Args:
@@ -93,6 +95,7 @@ class Sandbox:
 
     def _wait_for_result(self) -> Results:
         time_left: float = self.config.max_execution_time_seconds
+        output_collector = OutputCollector(self.buffer_limit)
 
         while True:
             before = time.monotonic()
@@ -106,13 +109,18 @@ class Sandbox:
 
                 error_msg = (
                     "Execution timed out after "
-                    f"{self.config.max_execution_time_seconds} seconds"
+                    f"{self.config.max_execution_time_seconds} seconds "
+                    "and output is partial"
                 )
 
+                output, truncated = output_collector.get_final_text()
+
                 return Results(
+                    output=output,
                     error=error_msg,
                     timed_out=True,
                     state_reset=True,
+                    truncated=truncated,
                 )
 
             try:
@@ -122,12 +130,32 @@ class Sandbox:
                 error_msg = "Sandbox process crashed, state was reset"
                 self.restart_child_process()
 
+                output, truncated = output_collector.get_final_text()
+
                 return Results(
+                    output=output,
                     error=error_msg,
                     state_reset=True,
+                    truncated=truncated,
                 )
 
+            if isinstance(msg, Output):
+                output_collector.add_to_buffer(msg.output)
+                continue
+
             if isinstance(msg, Results):
+                err_collector = OutputCollector(self.buffer_limit)
+
+                err_collector.add_to_buffer(msg.error)
+
+                err_output, err_truncated = err_collector.get_final_text()
+
+                output, truncated = output_collector.get_final_text()
+
+                msg.output = output
+                msg.error = err_output
+                msg.truncated = True if truncated or err_truncated else False
+
                 return msg
 
             if isinstance(msg, ToolCall):
@@ -158,9 +186,13 @@ class Sandbox:
                     error_msg = "Sandbox process crashed, state was reset."
                     self.restart_child_process()
 
+                    output, truncated = output_collector.get_final_text()
+
                     return Results(
+                        output=output,
                         error=error_msg,
                         state_reset=True,
+                        truncated=truncated,
                     )
 
                 continue
@@ -172,15 +204,19 @@ class Sandbox:
 
             self.restart_child_process()
 
+            output, truncated = output_collector.get_final_text()
+
             return Results(
+                output=output,
                 error=error_msg,
                 state_reset=True,
+                truncated=truncated,
             )
 
     def add_tools(self, client: MCPClient) -> None:
-        """Store the client and tool names, then restart the worker.
+        """Store the client and tool names, then restart the child.
 
-        The new worker starts with one function per tool. A server
+        The new child starts with one function per tool. A server
         tool named final_answer is skipped so it cannot replace the
         built-in one.
 
@@ -234,7 +270,7 @@ class Sandbox:
         return manual_string
 
     def shutdown(self) -> None:
-        """Stop the worker, terminating it if it doesn't exit in time."""
+        """Stop the child, terminating it if it doesn't exit in time."""
 
         try:
             self.conn.send(None)

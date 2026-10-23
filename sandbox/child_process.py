@@ -1,4 +1,4 @@
-"""Worker process that executes sandboxed code sent over a pipe."""
+"""Child process that executes sandboxed code sent over a pipe."""
 from multiprocessing import connection
 from multiprocessing.connection import Connection
 from contextlib import redirect_stdout
@@ -7,11 +7,10 @@ from common import SandboxConfig, ToolCall, ToolResult
 from .final_answer import FinalAnswer, send_final_answer
 from .results import Results
 from .security import Security
+from .output_stream import OutputStreamer
 import traceback
 import resource
 import signal
-
-import io
 
 
 def child_process(conn: connection.Connection, config: SandboxConfig,
@@ -56,7 +55,7 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
         if msg is None:
             break
 
-        buffer = io.StringIO()
+        buffer = OutputStreamer(conn)
         err = ""
         final_answer = None
 
@@ -71,8 +70,11 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
         except Exception:
             err = traceback.format_exc(chain=True)
 
+        finally:
+            buffer.send_remaining()
+
         conn.send(Results(
-            output=buffer.getvalue(),
+            output="",
             error=err,
             final_ans=final_answer,
         ))

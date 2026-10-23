@@ -1,4 +1,4 @@
-"""Restrictions applied to code running in the sandbox worker."""
+"""Restrictions applied to code running in the sandbox's child process."""
 from common import SandboxConfig
 from typing import Any, Mapping, Sequence, NoReturn
 from types import ModuleType
@@ -198,7 +198,7 @@ class Security:
 
         Replaces socket.socket and socket.getaddrinfo with
         handle_socket. Affects the whole process, so it is only called
-        in the worker.
+        in the child.
         """
 
         setattr(socket, "socket", self.handle_socket)

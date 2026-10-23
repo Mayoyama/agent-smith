@@ -1,11 +1,11 @@
-"""Messages sent over the pipe between the sandbox and its worker."""
+"""Messages sent over the pipe between the sandbox and its child process."""
 from dataclasses import dataclass
 from typing import Any
 
 
 @dataclass(frozen=True)
 class ToolResult:
-    """Result of a tool call, sent from the parent to the worker.
+    """Result of a tool call, sent from the parent to the child.
 
     Attributes:
         text: The tool's output, or the error message.
@@ -18,7 +18,7 @@ class ToolResult:
 
 @dataclass(frozen=True)
 class ToolCall:
-    """Tool request, sent from the worker to the parent.
+    """Tool request, sent from the child to the parent.
 
     Attributes:
         tool_name: Name of the MCP tool to call.
@@ -27,3 +27,14 @@ class ToolCall:
 
     tool_name: str
     args: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class Output:
+    """Piece of printed output, sent from the child to the parent.
+
+    Attributes:
+        output: Text the sandboxed code printed since the last piece.
+    """
+
+    output: str
