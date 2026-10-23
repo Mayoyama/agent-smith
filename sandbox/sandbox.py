@@ -15,6 +15,8 @@ class Sandbox:
 
     Attributes:
         config: Sandbox limits and allowlists.
+        buffer_limit: Maximum characters of output and error kept per
+            run.
         client: Connected MCP client, or None.
         tool_names: MCP tool names exposed in the child.
         conn: Parent end of the pipe to the child.
@@ -26,6 +28,8 @@ class Sandbox:
 
         Args:
             config: Sandbox limits and allowlists.
+            buff_limit: Maximum characters of output and error kept
+                per run; longer text keeps its start and end.
         """
 
         self.buffer_limit = buff_limit
@@ -76,7 +80,8 @@ class Sandbox:
             code: Python source to execute.
 
         Returns:
-            Output, error, final answer, and timeout/reset flags.
+            Output, error, final answer, and timeout/truncation/reset
+            flags.
         """
 
         try:
@@ -94,6 +99,18 @@ class Sandbox:
         return self._wait_for_result()
 
     def _wait_for_result(self) -> Results:
+        """Wait for the child's result while serving its messages.
+
+        Collects streamed output, runs tool calls for the child and
+        returns when the Results arrive. Only time spent waiting on
+        the child counts toward the timeout. On a timeout, crash or
+        unexpected message the child is restarted. Output and error
+        are cut to buffer_limit.
+
+        Returns:
+            The run's result, including any partial output.
+        """
+
         time_left: float = self.config.max_execution_time_seconds
         output_collector = OutputCollector(self.buffer_limit)
 

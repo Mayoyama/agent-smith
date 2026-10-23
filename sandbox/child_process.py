@@ -20,8 +20,9 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
     Gives the namespace restricted builtins, adds final_answer and
     one wrapper per tool, sets the memory and file size limits, blocks
     network access and ignores Ctrl+C. Each message is checked with
-    the AST check, executed, and answered with a Results. A None
-    message ends the loop.
+    the AST check and executed, with printed output streamed to the
+    parent, then answered with a Results. A None message ends the
+    loop.
 
     Args:
         conn: Child end of the pipe to the parent.
