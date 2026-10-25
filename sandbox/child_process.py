@@ -91,24 +91,28 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
         tool_name: Name of the tool to wrap.
 
     Returns:
-        A function that sends its keyword arguments to the parent as
-        a ToolCall and returns the text of the ToolResult.
+        A function that sends its positional and keyword arguments to
+        the parent as a ToolCall and returns the text of the
+        ToolResult.
     """
 
-    def toolCall_function(**kwargs: Any) -> str:
+    def toolCall_function(*args: Any, **kwargs: Any) -> str:
         """Send a tool request to the parent and wait for the result.
 
         Args:
-            **kwargs: Arguments passed straight to the tool.
+            *args: Positional arguments, mapped to parameter names by
+                the parent.
+            **kwargs: Keyword arguments for the tool.
 
         Returns:
             The tool's result as text.
 
         Raises:
-            RuntimeError: If the tool call failed.
+            RuntimeError: If the parent rejected the arguments, the
+                tool call failed, or the reply was unexpected.
         """
 
-        conn.send(ToolCall(tool_name, kwargs))
+        conn.send(ToolCall(tool_name, kwargs, args))
 
         reply = conn.recv()
 

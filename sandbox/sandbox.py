@@ -1,11 +1,11 @@
 """Sandbox running code in a child process with time and memory limits."""
 
-from common import SandboxConfig, ToolCall, ToolResult, Output
+from common import SandboxConfig, ToolCall, ToolResult, Output, OutputCollector
 from .results import Results
 from .mcp_client import MCPClient
 from .child_process import child_process
-from .output_stream import OutputCollector
 from multiprocessing.connection import Connection
+from typing import Any
 import multiprocessing
 import time
 
@@ -19,6 +19,8 @@ class Sandbox:
             run.
         client: Connected MCP client, or None.
         tool_names: MCP tool names exposed in the child.
+        tool_param_names: Each tool's parameter names in schema
+            order, used to map positional arguments.
         conn: Parent end of the pipe to the child.
         process: The child process.
     """
@@ -36,6 +38,7 @@ class Sandbox:
         self.config = config
         self.client: MCPClient | None = None
         self.tool_names: list[str] = []
+        self.tool_param_names: dict[str, list[str]] = {}
         self.conn, self.process = self._start_new_process()
 
     def _start_new_process(self) -> tuple[Connection, multiprocessing.Process]:
@@ -101,8 +104,10 @@ class Sandbox:
     def _wait_for_result(self) -> Results:
         """Wait for the child's result while serving its messages.
 
-        Collects streamed output, runs tool calls for the child and
-        returns when the Results arrive. Only time spent waiting on
+        Collects streamed output, checks and maps the arguments of
+        each tool call with handle_tool_args, runs the call for the
+        child and returns when the Results arrive. A rejected or
+        failed tool call is sent back as an error ToolResult. Only time spent waiting on
         the child counts toward the timeout. On a timeout, crash or
         unexpected message the child is restarted. Output and error
         are cut to buffer_limit.
@@ -112,7 +117,7 @@ class Sandbox:
         """
 
         time_left: float = self.config.max_execution_time_seconds
-        output_collector = OutputCollector(self.buffer_limit)
+        output_collector = OutputCollector(self.buffer_limit, True)
 
         while True:
             before = time.monotonic()
@@ -161,7 +166,7 @@ class Sandbox:
                 continue
 
             if isinstance(msg, Results):
-                err_collector = OutputCollector(self.buffer_limit)
+                err_collector = OutputCollector(self.buffer_limit, True)
 
                 err_collector.add_to_buffer(msg.error)
 
@@ -184,7 +189,8 @@ class Sandbox:
 
                 else:
                     try:
-                        res = self.client.call_tool(msg.tool_name, msg.args)
+                        kwargs = self.handle_tool_args(msg)
+                        res = self.client.call_tool(msg.tool_name, kwargs)
                         tool_result = ToolResult(
                             text=res,
                             is_error=False,
@@ -231,7 +237,8 @@ class Sandbox:
             )
 
     def add_tools(self, client: MCPClient) -> None:
-        """Store the client and tool names, then restart the child.
+        """Store the client, tool names and parameter names, then
+        restart the child.
 
         The new child starts with one function per tool. A server
         tool named final_answer is skipped so it cannot replace the
@@ -248,6 +255,8 @@ class Sandbox:
                 continue
 
             self.tool_names.append(tool.name)
+            properties = tool.input_schema.get("properties", {})
+            self.tool_param_names[tool.name] = list(properties.keys())
 
         self.restart_child_process()
 
@@ -285,6 +294,55 @@ class Sandbox:
                 manual_string += f"{tool_string}\n"
 
         return manual_string
+
+    def handle_tool_args(self, tool_call: ToolCall) -> dict[str, Any]:
+        """Check a tool call and turn its arguments into keyword arguments.
+
+        Positional arguments are matched to the tool's parameter names
+        in schema order, then the keyword arguments are added.
+
+        Args:
+            tool_call: Tool request received from the child.
+
+        Returns:
+            All arguments by parameter name, ready for call_tool.
+
+        Raises:
+            ValueError: If the tool is unknown, too many positional
+                arguments are given, an argument is given both
+                positionally and by keyword, or a keyword is not a
+                parameter of the tool.
+        """
+
+        if tool_call.tool_name not in self.tool_names:
+            raise ValueError(f"unknown tool '{tool_call.tool_name}'")
+
+        param_names = self.tool_param_names[tool_call.tool_name]
+
+        positional = tool_call.positional_args
+
+        if len(positional) > len(param_names):
+            raise ValueError(
+                f"{tool_call.tool_name} takes {len(param_names)} arguments "
+                f"but {len(positional)} were provided")
+
+        mapped: dict[str, Any] = {}
+
+        for i, val in enumerate(positional):
+            mapped[param_names[i]] = val
+
+        for name, val in tool_call.args.items():
+            if name in mapped:
+                raise ValueError(
+                    f"{name} given both as positional argument and by keyword")
+
+            if name not in param_names:
+                raise ValueError(
+                    f"unknown argument '{name}' for {tool_call.tool_name}")
+
+            mapped[name] = val
+
+        return mapped
 
     def shutdown(self) -> None:
         """Stop the child, terminating it if it doesn't exit in time."""

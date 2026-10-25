@@ -4,6 +4,7 @@ from .models_public import (SandboxConfig, SolutionOutput,
 from .task_loader import (format_err_location, loader,
                           setup_parser)
 from .messages import ToolCall, ToolResult, Output
+from .output_collector import OutputCollector
 
 __all__ = [
     "SandboxConfig",
@@ -17,4 +18,5 @@ __all__ = [
     "ToolResult",
     "ToolCall",
     "Output",
+    "OutputCollector",
 ]

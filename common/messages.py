@@ -23,10 +23,13 @@ class ToolCall:
     Attributes:
         tool_name: Name of the MCP tool to call.
         args: Keyword arguments for the tool.
+        positional_args: Positional arguments for the tool, mapped
+            to parameter names by the parent.
     """
 
     tool_name: str
     args: dict[str, Any]
+    positional_args: tuple[Any, ...]
 
 
 @dataclass(frozen=True)
