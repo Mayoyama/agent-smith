@@ -15,12 +15,11 @@ class Sandbox:
 
     Attributes:
         config: Sandbox limits and allowlists.
-        buffer_limit: Maximum characters of output and error kept per
-            run.
+        buffer_limit: Maximum characters of output and error kept per run.
         client: Connected MCP client, or None.
         tool_names: MCP tool names exposed in the child.
-        tool_param_names: Each tool's parameter names in schema
-            order, used to map positional arguments.
+        tool_param_names: Each tool's parameter names in schema order, used to
+            map positional arguments.
         conn: Parent end of the pipe to the child.
         process: The child process.
     """
@@ -30,8 +29,8 @@ class Sandbox:
 
         Args:
             config: Sandbox limits and allowlists.
-            buff_limit: Maximum characters of output and error kept
-                per run; longer text keeps its start and end.
+            buff_limit: Maximum characters of output and error kept per run;
+                longer text keeps its start and end.
         """
 
         self.buffer_limit = buff_limit
@@ -76,15 +75,14 @@ class Sandbox:
     def run_exec(self, code: str) -> Results:
         """Run code in the child and return its result.
 
-        If the child times out or dies, it is restarted and the
-        result reports that the state was reset.
+        If the child times out or dies, it is restarted and the result reports
+        that the state was reset.
 
         Args:
             code: Python source to execute.
 
         Returns:
-            Output, error, final answer, and timeout/truncation/reset
-            flags.
+            Output, error, final answer, and timeout/truncation/reset flags.
         """
 
         try:
@@ -104,13 +102,12 @@ class Sandbox:
     def _wait_for_result(self) -> Results:
         """Wait for the child's result while serving its messages.
 
-        Collects streamed output, checks and maps the arguments of
-        each tool call with handle_tool_args, runs the call for the
-        child and returns when the Results arrive. A rejected or
-        failed tool call is sent back as an error ToolResult. Only time spent waiting on
-        the child counts toward the timeout. On a timeout, crash or
-        unexpected message the child is restarted. Output and error
-        are cut to buffer_limit.
+        Collects streamed output, checks and maps the arguments of each tool
+        call with handle_tool_args, runs the call for the child and returns
+        when the Results arrive. A rejected or failed tool call is sent back as
+        an error ToolResult. Only time spent waiting on the child counts toward
+        the timeout. On a timeout, crash or unexpected message the child is
+        restarted. Output and error are cut to buffer_limit.
 
         Returns:
             The run's result, including any partial output.
@@ -237,12 +234,11 @@ class Sandbox:
             )
 
     def add_tools(self, client: MCPClient) -> None:
-        """Store the client, tool names and parameter names, then
-        restart the child.
+        """Store the client, tool names and parameter names, then restart the
+        child.
 
-        The new child starts with one function per tool. A server
-        tool named final_answer is skipped so it cannot replace the
-        built-in one.
+        The new child starts with one function per tool. A server tool named
+        final_answer is skipped so it cannot replace the built-in one.
 
         Args:
             client: Connected MCP client.
@@ -298,8 +294,8 @@ class Sandbox:
     def handle_tool_args(self, tool_call: ToolCall) -> dict[str, Any]:
         """Check a tool call and turn its arguments into keyword arguments.
 
-        Positional arguments are matched to the tool's parameter names
-        in schema order, then the keyword arguments are added.
+        Positional arguments are matched to the tool's parameter names in
+        schema order, then the keyword arguments are added.
 
         Args:
             tool_call: Tool request received from the child.
@@ -308,10 +304,9 @@ class Sandbox:
             All arguments by parameter name, ready for call_tool.
 
         Raises:
-            ValueError: If the tool is unknown, too many positional
-                arguments are given, an argument is given both
-                positionally and by keyword, or a keyword is not a
-                parameter of the tool.
+            ValueError: If the tool is unknown, too many positional arguments
+                are given, an argument is given both positionally and by
+                keyword, or a keyword is not a parameter of the tool.
         """
 
         if tool_call.tool_name not in self.tool_names:

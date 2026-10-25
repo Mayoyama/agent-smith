@@ -1,4 +1,5 @@
 """Child process that executes sandboxed code sent over a pipe."""
+
 from multiprocessing import connection
 from multiprocessing.connection import Connection
 from contextlib import redirect_stdout
@@ -17,17 +18,16 @@ def child_process(conn: connection.Connection, config: SandboxConfig,
                   tool_names: list[str]) -> None:
     """Run received code in a persistent namespace until told to stop.
 
-    Gives the namespace restricted builtins, adds final_answer and
-    one wrapper per tool, sets the memory and file size limits, blocks
-    network access and ignores Ctrl+C. Each message is checked with
-    the AST check and executed, with printed output streamed to the
-    parent, then answered with a Results. A None message ends the
-    loop.
+    Gives the namespace restricted builtins, adds final_answer and one wrapper
+    per tool, sets the memory and file size limits, blocks network access and
+    ignores Ctrl+C. Each message is checked with the AST check and executed,
+    with printed output streamed to the parent, then answered with a Results. A
+    None message ends the loop.
 
     Args:
         conn: Child end of the pipe to the parent.
-        config: Sandbox config, used for the import and directory
-            allowlists and the memory limit.
+        config: Sandbox config, used for the import and directory allowlists
+            and the memory limit.
         tool_names: Names of the MCP tools to expose as functions.
     """
 
@@ -91,25 +91,24 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
         tool_name: Name of the tool to wrap.
 
     Returns:
-        A function that sends its positional and keyword arguments to
-        the parent as a ToolCall and returns the text of the
-        ToolResult.
+        A function that sends its positional and keyword arguments to the
+        parent as a ToolCall and returns the text of the ToolResult.
     """
 
     def toolCall_function(*args: Any, **kwargs: Any) -> str:
         """Send a tool request to the parent and wait for the result.
 
         Args:
-            *args: Positional arguments, mapped to parameter names by
-                the parent.
+            *args: Positional arguments, mapped to parameter names by the
+                parent.
             **kwargs: Keyword arguments for the tool.
 
         Returns:
             The tool's result as text.
 
         Raises:
-            RuntimeError: If the parent rejected the arguments, the
-                tool call failed, or the reply was unexpected.
+            RuntimeError: If the parent rejected the arguments, the tool call
+                failed, or the reply was unexpected.
         """
 
         conn.send(ToolCall(tool_name, kwargs, args))

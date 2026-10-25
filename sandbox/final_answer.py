@@ -4,8 +4,8 @@
 class FinalAnswer(BaseException):
     """Signal raised to end execution with a final answer.
 
-    Inherits from BaseException so `except Exception` in model code
-    cannot swallow it.
+    Inherits from BaseException so `except Exception` in model code cannot
+    swallow it.
 
     Attributes:
         value: The submitted answer.

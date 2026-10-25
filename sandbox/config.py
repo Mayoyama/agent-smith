@@ -1,4 +1,5 @@
 """Sandbox configuration loading and default values."""
+
 from common import SandboxConfig
 from pydantic import ValidationError
 import sys
@@ -8,8 +9,8 @@ def get_default_config() -> SandboxConfig:
     """Build a SandboxConfig with the default values from the subject.
 
     Returns:
-        SandboxConfig: Config with the default import allowlist,
-            allowed directories, 30 s timeout and 512 MB memory limit.
+        SandboxConfig: Config with the default import allowlist, allowed
+            directories, 30 s timeout and 512 MB memory limit.
     """
 
     authorized_imports: list[str] = [
@@ -44,8 +45,8 @@ def load_config_or_defaults(config_path: str | None = None) -> SandboxConfig:
     """Load the sandbox config from a JSON file, or use the defaults.
 
     Args:
-        config_path: Path to a JSON config file. If None, the default
-            config is returned.
+        config_path: Path to a JSON config file. If None, the default config is
+            returned.
 
     Returns:
         SandboxConfig: The validated config.

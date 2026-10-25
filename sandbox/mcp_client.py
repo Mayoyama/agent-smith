@@ -1,4 +1,5 @@
 """Sync MCP client running its async session in a background thread."""
+
 from concurrent.futures import Future
 from typing import Any
 import os
@@ -20,8 +21,8 @@ except ImportError as e:
 class MCPClient:
     """Synchronous wrapper around an async MCP client session.
 
-    The session runs on an event loop in a background daemon thread,
-    so sandbox code can call tools without using asyncio.
+    The session runs on an event loop in a background daemon thread, so sandbox
+    code can call tools without using asyncio.
 
     Attributes:
         session: The active MCP ClientSession, or None.
@@ -156,8 +157,8 @@ class MCPClient:
             The text content joined together.
 
         Raises:
-            RuntimeError: If the session is not connected or the
-                server flagged the call as an error.
+            RuntimeError: If the session is not connected or the server flagged
+                the call as an error.
         """
 
         if self.session is None:

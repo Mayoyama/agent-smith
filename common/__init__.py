@@ -5,6 +5,7 @@ from .task_loader import (format_err_location, loader,
                           setup_parser)
 from .messages import ToolCall, ToolResult, Output
 from .output_collector import OutputCollector
+from .tool_arg_parser import parse_tool_args
 
 __all__ = [
     "SandboxConfig",
@@ -19,4 +20,5 @@ __all__ = [
     "ToolCall",
     "Output",
     "OutputCollector",
+    "parse_tool_args",
 ]

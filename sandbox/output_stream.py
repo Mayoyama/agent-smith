@@ -1,4 +1,5 @@
 """Streaming of printed output from the child to the parent."""
+
 from multiprocessing.connection import Connection
 from common import Output
 import io
@@ -8,8 +9,8 @@ class OutputStreamer(io.TextIOBase):
     """Stdout replacement in the child that streams output to the parent.
 
     Text is sent as Output messages whenever a newline arrives or 200
-    characters have built up, so the parent keeps what was printed
-    even if the child is killed.
+    characters have built up, so the parent keeps what was printed even if the
+    child is killed.
 
     Attributes:
         conn: Child end of the pipe to the parent.

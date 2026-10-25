@@ -1,4 +1,5 @@
 """Minimal MCP server with dummy tools for testing the sandbox."""
+
 from mcp.server.mcpserver import MCPServer
 
 

@@ -1,4 +1,5 @@
 """Load and validate task JSON files, and set up the shared agent CLI."""
+
 from json import JSONDecodeError, load
 from pydantic import ValidationError, BaseModel
 from argparse import ArgumentParser
@@ -41,8 +42,7 @@ def loader(path: str, model: type[T]) -> T | None:
         model: Pydantic model class to validate against.
 
     Returns:
-        The validated model instance, or None on any read or
-        validation error.
+        The validated model instance, or None on any read or validation error.
     """
 
     try:
@@ -74,8 +74,8 @@ def setup_parser() -> ArgumentParser:
     """Build the command-line parser shared by both agents.
 
     Returns:
-        A parser with --task-file and --output (required) and
-        --model-name and --provider-url (optional).
+        A parser with --task-file and --output (required) and --model-name and
+        --provider-url (optional).
     """
 
     parser = ArgumentParser(description="argument parser")

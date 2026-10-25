@@ -4,10 +4,10 @@
 class OutputCollector():
     """Collects text up to a limit, keeping its start and end.
 
-    The first quarter of the limit holds the start of the text and the
-    rest holds the most recent text, so memory stays bounded however
-    much is added. Used by the sandbox parent for the child's output
-    and by the MCP tool servers for long tool output.
+    The first quarter of the limit holds the start of the text and the rest
+    holds the most recent text, so memory stays bounded however much is added.
+    Used by the sandbox parent for the child's output and by the MCP tool
+    servers for long tool output.
 
     Attributes:
         limit: Maximum number of characters kept.
@@ -16,8 +16,8 @@ class OutputCollector():
         start_buffer: Kept text from the start.
         end_buffer: Kept text from the end.
         char_count: Total number of characters received.
-        hint: Advice for the LLM added to the truncation marker, or
-            an empty string.
+        hint: Advice for the LLM added to the truncation marker, or an empty
+            string.
     """
 
     def __init__(self, limit: int, use_hint: bool = False) -> None:
@@ -25,8 +25,8 @@ class OutputCollector():
 
         Args:
             limit: Maximum number of characters kept.
-            use_hint: Add the "print less" hint to the truncation
-                marker (for sandbox output).
+            use_hint: Add the "print less" hint to the truncation marker (for
+                sandbox output).
         """
 
         self.limit = limit
@@ -65,9 +65,8 @@ class OutputCollector():
     def get_final_text(self) -> tuple[str, bool]:
         """Return the kept text and whether anything was dropped.
 
-        When text was dropped, a marker with the number of missing
-        characters, the limit and, if enabled, the hint sits between
-        start and end.
+        When text was dropped, a marker with the number of missing characters,
+        the limit and, if enabled, the hint sits between start and end.
 
         Returns:
             The final text and True if it was truncated.

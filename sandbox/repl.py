@@ -1,4 +1,5 @@
 """Interactive command-line REPL for testing the sandbox and MCP tools."""
+
 from argparse import ArgumentParser
 import sys
 from .sandbox import Sandbox
@@ -10,16 +11,35 @@ from .config import load_config_or_defaults
 def repl() -> None:
     """Run an interactive sandbox session, optionally with MCP tools.
 
-    Connects to an MCP server if --mcp-stdio or --mcp-server is given,
-    prints the manual, then executes each input line until exit,
-    EOF or final_answer().
+    Connects to an MCP server if --mcp-stdio or --mcp-server is given, prints
+    the manual, then executes each input line until exit, EOF or
+    final_answer().
     """
 
     parser = ArgumentParser(description="repl command-line argument parser")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--mcp-stdio", type=str, required=False)
-    group.add_argument("--mcp-server", type=str, required=False)
-    parser.add_argument("config", nargs="?", default=None)
+    group.add_argument(
+        "--mcp-stdio",
+        type=str,
+        required=False,
+        help="starts MCP server, connected via stdio",
+    )
+
+    group.add_argument(
+        "--mcp-server",
+        type=str,
+        required=False,
+        help="URL of running server, connected via streamable http",
+    )
+
+    parser.add_argument(
+        "config",
+        type=str,
+        nargs="?",
+        default=None,
+        help="path to JSON sandbox config file; defaults used if omitted",
+    )
+
     args = parser.parse_args()
 
     config = load_config_or_defaults(args.config)

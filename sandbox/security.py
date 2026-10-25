@@ -1,4 +1,5 @@
 """Restrictions applied to code running in the sandbox's child process."""
+
 from common import SandboxConfig
 from typing import Any, Mapping, Sequence, NoReturn
 from types import ModuleType
@@ -50,21 +51,19 @@ class Security:
     """Holds the sandbox allowlists and the restricted builtins.
 
     Attributes:
-        allow_imports: Allowed module names; an entry ending in ".*"
-            also allows that module's submodules.
-        module_escapes: Attribute names on allowed modules that point
-            to modules outside the allowlist (e.g. "_os", "sys").
+        allow_imports: Allowed module names; an entry ending in ".*" also
+            allows that module's submodules.
+        module_escapes: Attribute names on allowed modules that point to
+            modules outside the allowlist (e.g. "_os", "sys").
         allowed_dirs: Directories sandboxed code may access.
-        resolved_dirs: The allowed directories with symlinks and ".."
-            resolved.
+        resolved_dirs: The allowed directories with symlinks and ".." resolved.
     """
 
     def __init__(self, config: SandboxConfig):
         """Store the allowlists and find the module escapes.
 
         Args:
-            config: Sandbox config with the import and directory
-                allowlists.
+            config: Sandbox config with the import and directory allowlists.
         """
 
         self.allow_imports = config.authorized_imports
@@ -83,23 +82,23 @@ class Security:
             ) -> ModuleType:
         """Import a module if it is on the allowlist.
 
-        Replaces __import__ for sandboxed code. Submodules named in
-        fromlist are checked against the allowlist as well.
+        Replaces __import__ for sandboxed code. Submodules named in fromlist
+        are checked against the allowlist as well.
 
         Args:
             name: Module name being imported.
             globals: Globals of the importing code.
             locals: Locals of the importing code.
-            fromlist: Names from a "from x import ..." statement, or
-                None for a plain import.
+            fromlist: Names from a "from x import ..." statement, or None for a
+                plain import.
             level: 0 for absolute imports, higher for relative ones.
 
         Returns:
             The imported module.
 
         Raises:
-            ImportError: If the import is relative or the module or a
-                submodule in fromlist is not allowed.
+            ImportError: If the import is relative or the module or a submodule
+                in fromlist is not allowed.
         """
 
         if level > 0:
@@ -133,8 +132,8 @@ class Security:
             name: Full dotted module name.
 
         Returns:
-            True if the name is listed exactly, or falls under an
-            entry ending in ".*".
+            True if the name is listed exactly, or falls under an entry ending
+            in ".*".
         """
 
         for allowed in self.allow_imports:
@@ -152,9 +151,9 @@ class Security:
     def build_builtins_whitelist(self) -> dict[str, Any]:
         """Build the restricted builtins for the sandbox namespace.
 
-        Contains the names in BUILTINS_WHITELIST, every exception class
-        except SystemExit and KeyboardInterrupt, and the restricted
-        __import__ and open.
+        Contains the names in BUILTINS_WHITELIST, every exception class except
+        SystemExit and KeyboardInterrupt, and the restricted __import__ and
+        open.
 
         Returns:
             Dict to use as the namespace's __builtins__.
@@ -196,9 +195,8 @@ class Security:
     def replace_socket(self) -> None:
         """Block network access in this process.
 
-        Replaces socket.socket and socket.getaddrinfo with
-        handle_socket. Affects the whole process, so it is only called
-        in the child.
+        Replaces socket.socket and socket.getaddrinfo with handle_socket.
+        Affects the whole process, so it is only called in the child.
         """
 
         setattr(socket, "socket", self.handle_socket)
@@ -207,8 +205,8 @@ class Security:
     def open_file(self, path: str, *args: Any, **kwargs: Any) -> Any:
         """Open a file if it lies inside an allowed directory.
 
-        Replaces open for sandboxed code. The path is resolved first,
-        so symlinks and ".." cannot leave the allowed directories.
+        Replaces open for sandboxed code. The path is resolved first, so
+        symlinks and ".." cannot leave the allowed directories.
 
         Args:
             path: Path of the file to open.
@@ -219,8 +217,8 @@ class Security:
             The opened file object.
 
         Raises:
-            PermissionError: If path is not a string or resolves to a
-                location outside the allowed directories.
+            PermissionError: If path is not a string or resolves to a location
+                outside the allowed directories.
         """
 
         if not isinstance(path, str):
@@ -238,9 +236,9 @@ class Security:
     def ast_parse(self, code: str) -> None:
         """Reject code that accesses blocked names or attributes.
 
-        Blocks dunder names other than __name__, dunder attributes not
-        in DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST,
-        and the module escapes.
+        Blocks dunder names other than __name__, dunder attributes not in
+        DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST, and the
+        module escapes.
 
         Args:
             code: Python source to check.
@@ -275,9 +273,9 @@ class Security:
     def _lockdown_module_escapes(self) -> set[str]:
         """Find attributes of allowed modules that lead to other modules.
 
-        Imports the allowed modules, then scans every loaded allowed
-        module for attributes whose value is a module that is not on
-        the allowlist (e.g. random._os is the os module).
+        Imports the allowed modules, then scans every loaded allowed module for
+        attributes whose value is a module that is not on the allowlist (e.g.
+        random._os is the os module).
 
         Returns:
             The names of those attributes.

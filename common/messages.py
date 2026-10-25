@@ -1,4 +1,5 @@
 """Messages sent over the pipe between the sandbox and its child process."""
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,8 +24,8 @@ class ToolCall:
     Attributes:
         tool_name: Name of the MCP tool to call.
         args: Keyword arguments for the tool.
-        positional_args: Positional arguments for the tool, mapped
-            to parameter names by the parent.
+        positional_args: Positional arguments for the tool, mapped to parameter
+            names by the parent.
     """
 
     tool_name: str

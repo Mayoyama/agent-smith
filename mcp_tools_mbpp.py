@@ -1,6 +1,11 @@
-"""MCP server with the MBPP tools (run_tests)."""
+"""MCP server with the MBPP tools (run_tests).
+
+Runs over stdio by default, or over streamable HTTP with --http
+(http://127.0.0.1:PORT/mcp, port 8000 unless --port is given).
+"""
+
 from mcp.server.mcpserver import MCPServer
-from common import OutputCollector
+from common import OutputCollector, parse_tool_args
 import subprocess
 import json
 import sys
@@ -15,20 +20,19 @@ ERROR_LENGTH_LIMIT = 300
 def run_tests(code: str, test_list: list[str]) -> str:
     """Run a candidate solution against MBPP test assertions.
 
-    Each assertion runs separately in a fresh Python process together
-    with the code, so one failing or hanging test does not hide the
-    others. The code must be self-contained: include every import the
-    tests need (e.g. import math) at the top of it.
+    Each assertion runs separately in a fresh Python process together with the
+    code, so one failing or hanging test does not hide the others. The code
+    must be self-contained: include every import the tests need (e.g. import
+    math) at the top of it.
 
     Args:
         code: Full Python source of the solution, imports included.
-        test_list: Assertions to check, e.g.
-            "assert add(1, 2) == 3".
+        test_list: Assertions to check, e.g. "assert add(1, 2) == 3".
 
     Returns:
-        A JSON string with "success" (true only if every assertion
-        passed) and "output" (one PASS, FAIL or TIMEOUT line per
-        assertion; long error messages are truncated with a marker).
+        A JSON string with "success" (true only if every assertion passed) and
+        "output" (one PASS, FAIL or TIMEOUT line per assertion; long error
+        messages are truncated with a marker).
     """
 
     if not test_list or not [line for line in test_list if line.strip()]:
@@ -91,4 +95,10 @@ def run_tests(code: str, test_list: list[str]) -> str:
 
 
 if __name__ == "__main__":
-    MCP_SERVER.run()
+    args = parse_tool_args()
+
+    if args.http:
+        MCP_SERVER.run(transport="streamable-http", port=args.port)
+
+    else:
+        MCP_SERVER.run()
