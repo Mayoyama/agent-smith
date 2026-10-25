@@ -125,7 +125,7 @@ def make_resource_function(conn: Connection) -> Callable[[str], str]:
         reply = conn.recv()
 
         if not isinstance(reply, ToolResult):
-            raise RuntimeError("unexpected rply from sandbox")
+            raise RuntimeError("unexpected reply from sandbox")
 
         if reply.is_error:
             raise RuntimeError(reply.text)
@@ -166,7 +166,7 @@ def make_prompt_function(conn: Connection) -> Callable[[str], str]:
         reply = conn.recv()
 
         if not isinstance(reply, ToolResult):
-            raise RuntimeError("unexpected rply from sandbox")
+            raise RuntimeError("unexpected reply from sandbox")
 
         if reply.is_error:
             raise RuntimeError(reply.text)

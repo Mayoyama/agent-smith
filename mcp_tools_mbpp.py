@@ -35,13 +35,15 @@ def run_tests(code: str, test_list: list[str]) -> str:
         messages are truncated with a marker).
     """
 
-    if not test_list or not [line for line in test_list if line.strip()]:
+    existing_tests = [line for line in test_list if line.strip()]
+
+    if not existing_tests:
         return json.dumps({"success": False, "output": "No tests to run"})
 
     test_results: list[str] = []
     all_passed = True
 
-    for test in test_list:
+    for test in existing_tests:
         result_text = ""
         assert_text = f"{code}\n{test}"
 
