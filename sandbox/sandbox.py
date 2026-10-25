@@ -1,6 +1,7 @@
 """Sandbox running code in a child process with time and memory limits."""
 
-from common import SandboxConfig, ToolCall, ToolResult, Output, OutputCollector
+from common import (SandboxConfig, ToolCall, ToolResult,
+                    Output, OutputCollector, ResourceRequest, PromptRequest)
 from .results import Results
 from .mcp_client import MCPClient
 from .child_process import child_process
@@ -17,6 +18,10 @@ class Sandbox:
         config: Sandbox limits and allowlists.
         buffer_limit: Maximum characters of output and error kept per run.
         client: Connected MCP client, or None.
+        support_resources: True if the connected server supports resources and
+            lists at least one.
+        support_prompts: True if the connected server supports prompts and
+            lists at least one.
         tool_names: MCP tool names exposed in the child.
         tool_param_names: Each tool's parameter names in schema order, used to
             map positional arguments.
@@ -35,7 +40,11 @@ class Sandbox:
 
         self.buffer_limit = buff_limit
         self.config = config
+
         self.client: MCPClient | None = None
+        self.support_resources: bool = False
+        self.support_prompts: bool = False
+
         self.tool_names: list[str] = []
         self.tool_param_names: dict[str, list[str]] = {}
         self.conn, self.process = self._start_new_process()
@@ -50,7 +59,13 @@ class Sandbox:
         parent_conn, child_conn = multiprocessing.Pipe()
         process = multiprocessing.Process(
             target=child_process,
-            args=(child_conn, self.config, self.tool_names),
+            args=(
+                child_conn,
+                self.config,
+                self.tool_names,
+                self.support_resources,
+                self.support_prompts,
+            ),
             daemon=True
         )
 
@@ -61,7 +76,7 @@ class Sandbox:
         return parent_conn, process
 
     def restart_child_process(self) -> None:
-        """Kill the current child and start a fresh one.
+        """Stop the current child process and start a fresh one.
 
         The child's namespace is lost.
         """
@@ -99,14 +114,64 @@ class Sandbox:
 
         return self._wait_for_result()
 
+    def _run_request(
+            self,
+            msg: ToolCall | ResourceRequest | PromptRequest
+            ) -> str:
+        """Run one request from the child on the MCP client.
+
+        Resource and prompt requests have their arguments checked first; tool
+        calls are checked and mapped with handle_tool_args.
+
+        Args:
+            msg: Tool call, resource request or prompt request from the child.
+
+        Returns:
+            The result as text.
+
+        Raises:
+            RuntimeError: If no MCP server is connected or the client call
+                fails.
+            ValueError: If the request's arguments are invalid.
+        """
+
+        if self.client is None:
+            raise RuntimeError("no MCP server connected")
+
+        if isinstance(msg, ResourceRequest):
+            if not isinstance(msg.uri, str):
+                raise ValueError("uri must be a string")
+
+            return self.client.read_resource_uri(msg.uri)
+
+        if isinstance(msg, PromptRequest):
+            if not isinstance(msg.name, str):
+                raise ValueError("prompt name must be a string")
+
+            if msg.args is not None:
+                if not isinstance(msg.args, dict):
+                    raise ValueError("prompt arguments must be a dict")
+
+                for k, val in msg.args.items():
+                    if not isinstance(k, str) or not isinstance(val, str):
+                        raise ValueError(
+                            "prompt argument names and values must be strings"
+                        )
+
+            return self.client.read_prompt_info(msg.name, msg.args)
+
+        kwargs = self.handle_tool_args(msg)
+
+        return self.client.call_tool(msg.tool_name, kwargs)
+
     def _wait_for_result(self) -> Results:
         """Wait for the child's result while serving its messages.
 
-        Collects streamed output, checks and maps the arguments of each tool
-        call with handle_tool_args, runs the call for the child and returns
-        when the Results arrive. A rejected or failed tool call is sent back as
-        an error ToolResult. Only time spent waiting on the child counts toward
-        the timeout. On a timeout, crash or unexpected message the child is
+        Collects streamed output, runs each tool call, resource request and
+        prompt request for the child with _run_request and returns when the
+        Results arrive. A rejected or failed request is sent back as an error
+        ToolResult. Only time spent waiting on the child counts toward the
+        timeout. On a timeout, crash or unexpected message the child is
         restarted. Output and error are cut to buffer_limit.
 
         Returns:
@@ -177,7 +242,7 @@ class Sandbox:
 
                 return msg
 
-            if isinstance(msg, ToolCall):
+            if isinstance(msg, (ToolCall, ResourceRequest, PromptRequest)):
                 if self.client is None:
                     tool_result = ToolResult(
                         text="no MCP server connected",
@@ -186,8 +251,7 @@ class Sandbox:
 
                 else:
                     try:
-                        kwargs = self.handle_tool_args(msg)
-                        res = self.client.call_tool(msg.tool_name, kwargs)
+                        res = self._run_request(msg)
                         tool_result = ToolResult(
                             text=res,
                             is_error=False,
@@ -234,11 +298,12 @@ class Sandbox:
             )
 
     def add_tools(self, client: MCPClient) -> None:
-        """Store the client, tool names and parameter names, then restart the
-        child.
+        """Store the client, its resource and prompt support, tool names and
+        parameter names, then restart the child.
 
-        The new child starts with one function per tool. A server tool named
-        final_answer is skipped so it cannot replace the built-in one.
+        The new child starts with one function per tool. Server tools named
+        final_answer, read_resource_uri or read_prompt_info are skipped so they
+        cannot replace the built-in functions.
 
         Args:
             client: Connected MCP client.
@@ -246,8 +311,15 @@ class Sandbox:
 
         self.client = client
 
+        self.support_resources = (client.support_resources
+                                  and len(client.resource_list) > 0)
+        self.support_prompts = (client.support_prompts
+                                and len(client.prompt_list) > 0)
+
         for tool in client.tools_list:
-            if tool.name == "final_answer":
+            if tool.name in ("final_answer",
+                             "read_resource_uri",
+                             "read_prompt_info"):
                 continue
 
             self.tool_names.append(tool.name)
@@ -257,13 +329,17 @@ class Sandbox:
         self.restart_child_process()
 
     def get_manual(self, client: MCPClient | None = None) -> str:
-        """List the functions available to sandboxed code.
+        """List the functions, resources and prompts for sandboxed code.
+
+        Resources and prompts are listed only if the server supports them and
+        has at least one, each section followed by how to read or get one.
 
         Args:
             client: Connected MCP client, or None for built-ins only.
 
         Returns:
-            One line per function: name, parameters and description.
+            One line per function, resource and prompt, with headers for the
+            resource and prompt sections.
         """
 
         manual_string = ("final_answer(answer: str): submit your final answer "
@@ -271,7 +347,11 @@ class Sandbox:
 
         if client is not None:
             for tool in client.tools_list:
-                if tool.name == "final_answer":
+                if tool.name in (
+                    "final_answer",
+                    "read_resource_uri",
+                    "read_prompt_info",
+                ):
 
                     continue
 
@@ -288,6 +368,51 @@ class Sandbox:
                                f"{desc}")
 
                 manual_string += f"{tool_string}\n"
+
+            if client.support_resources and len(client.resource_list):
+                resource_string = "**Resources**:\n"
+
+                for item in client.resource_list:
+                    resource_string += f"name: {item.name}, uri: {item.uri}"
+
+                    if not item.description:
+                        resource_string += '\n'
+
+                    else:
+                        desc = f", description: {item.description}\n"
+                        resource_string += desc
+
+                resource_string += ("Read one with: "
+                                    "read_resource_uri(uri: str) -> str\n")
+                manual_string += resource_string
+
+            if client.support_prompts and len(client.prompt_list):
+                prompt_string = "**Prompts**:\n"
+
+                for item in client.prompt_list:
+                    prompt_string += f"name: {item.name}"
+
+                    if item.description:
+                        prompt_string += f", description: {item.description}"
+
+                    if item.arguments:
+                        arg_names = []
+
+                        for arg in item.arguments:
+                            if arg.required:
+                                arg_names.append(f"{arg.name} (required)")
+
+                            else:
+                                arg_names.append(f"{arg.name}")
+
+                        prompt_string += f", args: {', '.join(arg_names)}"
+
+                    prompt_string += '\n'
+
+                prompt_string += ("Get one with: read_prompt_info(name: str, "
+                                  "args: dict[str, str] | None = None) -> str "
+                                  "(argument values must be strings)\n")
+                manual_string += prompt_string
 
         return manual_string
 

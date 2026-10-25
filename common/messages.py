@@ -42,3 +42,27 @@ class Output:
     """
 
     output: str
+
+
+@dataclass(frozen=True)
+class ResourceRequest:
+    """Resource read request, sent from the child to the parent.
+
+    Attributes:
+        uri: URI of the resource to read.
+    """
+
+    uri: str
+
+
+@dataclass(frozen=True)
+class PromptRequest:
+    """Prompt request, sent from the child to the parent.
+
+    Attributes:
+        name: Name of the prompt.
+        args: Prompt arguments, or None.
+    """
+
+    name: str
+    args: dict[str, str] | None
