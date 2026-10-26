@@ -6,12 +6,14 @@ import requests
 import time
 
 
-def send_request(model_data: LLMModelData,
-                 api_key: str,
-                 msgs: list[dict[str, str]],
-                 timeout_limit: int,
-                 stop: tuple[str, ...] = ("<end_code>",),
-                 ) -> RequestData:
+def send_request(
+    model_data: LLMModelData,
+    api_key: str,
+    msgs: list[dict[str, str]],
+    timeout_limit: int,
+    stop: tuple[str, ...] = ("<end_code>",),
+    max_tokens: int | None = None
+) -> RequestData:
     """Send one chat completion request and return the result.
 
     Posts the messages to <base_url>/chat/completions with the given key and
@@ -24,6 +26,7 @@ def send_request(model_data: LLMModelData,
         msgs: The conversation, as dicts with "role" and "content".
         timeout_limit: Seconds to wait for the response.
         stop: Sequences at which the model stops generating.
+        max_tokens: Maximum tokens the model may generate or None for no limit.
 
     Returns:
         The reply text, token counts, request time and status code.
@@ -40,6 +43,8 @@ def send_request(model_data: LLMModelData,
         "messages": msgs,
         "stop": list(stop),
     }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
 
     start: float = time.perf_counter()
     reply = requests.post(url=url, headers=headers,
@@ -78,11 +83,13 @@ def send_request(model_data: LLMModelData,
     return reply_data
 
 
-def handle_request(model_data: LLMModelData,
-                   msgs: list[dict[str, str]],
-                   timeout_limit: int,
-                   stop: tuple[str, ...] = ("<end_code>",),
-                   ) -> tuple[RequestData, int]:
+def handle_request(
+    model_data: LLMModelData,
+    msgs: list[dict[str, str]],
+    timeout_limit: int,
+    stop: tuple[str, ...] = ("<end_code>",),
+    max_tokens: int | None = None
+) -> tuple[RequestData, int]:
     """Send a request, retrying and switching API keys as needed.
 
     The keys are tried in order. A 401 or 429 moves on to the next key. A 5xx,
@@ -94,6 +101,7 @@ def handle_request(model_data: LLMModelData,
         msgs: The conversation, as dicts with "role" and "content".
         timeout_limit: Seconds to wait for each response.
         stop: Sequences at which the model stops generating.
+        max_tokens: Maximum tokens the model may generate or None for no limit.
 
     Returns:
         The successful result and the total number of retries.
@@ -110,7 +118,9 @@ def handle_request(model_data: LLMModelData,
 
         while True:
             try:
-                data = send_request(model_data, key, msgs, timeout_limit, stop)
+                data = send_request(
+                    model_data, key, msgs, timeout_limit, stop, max_tokens
+                )
 
                 if data.reply_code == 200:
                     return (data, total_retries)
