@@ -3,6 +3,7 @@ agent_smith_subject.md
 admin/
 moulinette/
 .vscode
+llm_test*.py
 
 # Python-generated files
 __pycache__/
