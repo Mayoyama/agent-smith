@@ -7,6 +7,8 @@ requires-python = ">=3.10"
 dependencies = [
     "mcp>=2.3.0",
     "pydantic>=2.13.5",
+    "python-dotenv>=1.2.4",
+    "requests>=2.34.2",
 ]
 
 [dependency-groups]
@@ -26,4 +28,4 @@ build-backend = "hatchling.build"
 
 # hatchling looks for packages by name (list all top level packages here)
 [tool.hatch.build.targets.wheel]
-packages = ["sandbox", "common", "agent_mbpp", "agent_swebench"]
+packages = ["sandbox", "common", "llms", "agent_mbpp", "agent_swebench"]

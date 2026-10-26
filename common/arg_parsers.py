@@ -1,6 +1,46 @@
-"""Command-line options shared by the MCP tool servers."""
+"""Command-line parsers for the agents and the MCP tool servers."""
 
 from argparse import ArgumentParser, Namespace
+
+
+def setup_agent_parser() -> ArgumentParser:
+    """Build the command-line parser shared by both agents.
+
+    Returns:
+        A parser with --task-file and --output (required) and --model-name and
+        --provider-url (optional).
+    """
+
+    parser = ArgumentParser(description="argument parser")
+    parser.add_argument(
+        "--task-file",
+        type=str,
+        required=True,
+        help="path to the task JSON",
+        )
+
+    parser.add_argument(
+        "--output",
+        type=str,
+        required=True,
+        help="path where solution.json gets written"
+        )
+
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        required=False,
+        help="model/name"
+        )
+
+    parser.add_argument(
+        "--provider-url",
+        type=str,
+        required=False,
+        help="URL for the api"
+        )
+
+    return parser
 
 
 def parse_tool_args(server: str = "mbpp") -> Namespace:

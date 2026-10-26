@@ -1,0 +1,19 @@
+{
+    "providers": [
+        {
+            "name": "groq",
+            "base_url": "https://api.groq.com/openai/v1",
+            "key_prefix": "GROQ_API_KEY"
+        },
+        {
+            "name": "gemini",
+            "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+            "key_prefix": "GEMINI_API_KEY"
+        },
+        {
+            "name": "openrouter",
+            "base_url": "https://openrouter.ai/api/v1",
+            "key_prefix": "OPENROUTER_API_KEY"
+        }
+    ]
+}
