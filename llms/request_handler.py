@@ -1,4 +1,4 @@
-
+"""Send chat completion requests, with retries and API key rotation."""
 
 from .models import LLMModelData, RequestData
 from typing import Any
@@ -9,10 +9,37 @@ import time
 def send_request(model_data: LLMModelData,
                  api_key: str,
                  msgs: list[dict[str, str]],
-                 timeout_limit: int) -> RequestData:
+                 timeout_limit: int,
+                 stop: tuple[str, ...] = ("<end_code>",),
+                 ) -> RequestData:
+    """Send one chat completion request and return the result.
+
+    Posts the messages to <base_url>/chat/completions with the given key and
+    times the request. A failed request is returned, not raised: the result
+    then has an empty text, zero tokens and the HTTP status code.
+
+    Args:
+        model_data: Base URL and model name to use.
+        api_key: API key for this request.
+        msgs: The conversation, as dicts with "role" and "content".
+        timeout_limit: Seconds to wait for the response.
+        stop: Sequences at which the model stops generating.
+
+    Returns:
+        The reply text, token counts, request time and status code.
+
+    Raises:
+        requests.Timeout: If no response arrives within timeout_limit.
+        requests.ConnectionError: If the API can't be reached.
+    """
+
     url = model_data.base_url.rstrip('/') + '/chat/completions'
     headers: dict[str, str] = {"Authorization": f"Bearer {api_key}"}
-    body: dict[str, Any] = {"model": model_data.model_name, "messages": msgs}
+    body: dict[str, Any] = {
+        "model": model_data.model_name,
+        "messages": msgs,
+        "stop": list(stop),
+    }
 
     start: float = time.perf_counter()
     reply = requests.post(url=url, headers=headers,
@@ -27,6 +54,9 @@ def send_request(model_data: LLMModelData,
         reply_text = json_data["choices"][0]["message"]["content"]
         input_tokens = json_data["usage"]["prompt_tokens"]
         output_tokens = json_data["usage"]["completion_tokens"]
+
+        if reply_text is None:
+            reply_text = ""
 
         reply_data = RequestData(
             text=reply_text,
@@ -50,7 +80,28 @@ def send_request(model_data: LLMModelData,
 
 def handle_request(model_data: LLMModelData,
                    msgs: list[dict[str, str]],
-                   timeout_limit: int) -> tuple[RequestData, int]:
+                   timeout_limit: int,
+                   stop: tuple[str, ...] = ("<end_code>",),
+                   ) -> tuple[RequestData, int]:
+    """Send a request, retrying and switching API keys as needed.
+
+    The keys are tried in order. A 401 or 429 moves on to the next key. A 5xx,
+    timeout or connection error is retried on the same key up to 3 times, 2 s
+    apart, before moving on. Every attempt after the first counts as a retry.
+
+    Args:
+        model_data: Base URL, model name and API keys to use.
+        msgs: The conversation, as dicts with "role" and "content".
+        timeout_limit: Seconds to wait for each response.
+        stop: Sequences at which the model stops generating.
+
+    Returns:
+        The successful result and the total number of retries.
+
+    Raises:
+        RuntimeError: If the API answers with any other error code, or if every
+            key failed.
+    """
 
     total_retries: int = 0
 
@@ -59,7 +110,7 @@ def handle_request(model_data: LLMModelData,
 
         while True:
             try:
-                data = send_request(model_data, key, msgs, timeout_limit)
+                data = send_request(model_data, key, msgs, timeout_limit, stop)
 
                 if data.reply_code == 200:
                     return (data, total_retries)
