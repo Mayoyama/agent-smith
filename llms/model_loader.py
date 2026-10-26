@@ -5,9 +5,11 @@ import dotenv
 import os
 
 
-def validate_llm_providers(config_path: str,
-                           model_name: str,
-                           provider_url: str) -> LLMModelData:
+def validate_llm_providers(
+    config_path: str,
+    model_name: str,
+    provider_url: str
+) -> LLMModelData:
     loaded = dotenv.load_dotenv()
     llm_provider: LLMProvider | None = None
 
