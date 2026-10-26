@@ -47,6 +47,7 @@ def send_request(
         )
 
     else:
+        print("DEBUG", reply.status_code, reply.text)
         reply_data = RequestData(
             text="",
             input_tokens=0,
