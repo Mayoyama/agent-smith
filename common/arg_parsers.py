@@ -29,14 +29,14 @@ def setup_agent_parser() -> ArgumentParser:
     parser.add_argument(
         "--model-name",
         type=str,
-        required=False,
+        required=True,
         help="model/name"
         )
 
     parser.add_argument(
         "--provider-url",
         type=str,
-        required=False,
+        required=True,
         help="URL for the api"
         )
 
