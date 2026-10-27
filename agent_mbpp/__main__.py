@@ -31,7 +31,11 @@ if __name__ == "__main__":
         print("Could not load task file", file=sys.stderr)
         sys.exit(1)
 
-    generate = make_generate(args.model_name, args.provider_url)
+    try:
+        generate = make_generate(args.model_name, args.provider_url)
+    except (ValueError, RuntimeError) as e:
+        print(f"LLM setup error: {e}", file=sys.stderr)
+        sys.exit(1)
     sandbox = Sandbox(get_default_config())
 
     try:
