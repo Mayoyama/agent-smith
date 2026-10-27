@@ -19,17 +19,17 @@ Rules:
 Example:
 
 Thought: Write the function and test it.
-``````python
+```python
 def add(a, b):
     return a + b
 print(add(1, 2) == 3)
-`````<end_code>
+```<end_code>
 
 Observation:
 True
 
 Thought: Test passes, submit the code.
-````python
+```python
 final_answer("def add(a, b):\n    return a + b")
 ```<end_code>
 """
