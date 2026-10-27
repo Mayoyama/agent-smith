@@ -41,7 +41,9 @@ if __name__ == "__main__":
             max_input_tokens=MAX_INPUT_TOKENS,
             max_output_tokens=MAX_OUTPUT_TOKENS,
             max_time_sec=MAX_TIME_SECONDS,
-            exec_timeout=sandbox.config.max_execution_time_seconds
+            exec_timeout=sandbox.config.max_execution_time_seconds,
+            api_url=args.provider_url,
+            model_name=args.model_name
         )
     finally:
         sandbox.shutdown()
