@@ -2,15 +2,19 @@
 
 
 import sys
+import time
 
 from argparse import ArgumentParser
+from pathlib import Path
 
 from agent.loop import make_generate, run_agent
 from agent_mbpp.prompt import SYSTEM, build_prompt
 from common.models_public import MBPPTaskInput
 from common import json_loader, setup_agent_parser
+from common import SolutionOutput
 from sandbox.config import get_default_config
 from sandbox.sandbox import Sandbox
+
 
 MAX_ITERATIONS = 10
 MAX_INPUT_TOKENS = 6000
@@ -31,8 +35,8 @@ if __name__ == "__main__":
     sandbox = Sandbox(get_default_config())
 
     try:
-        assert task is not None
-        answer = run_agent(
+        start: float = time.monotonic()
+        result = run_agent(
             task=build_prompt(task),
             system_prompt=SYSTEM,
             generate=generate,
@@ -45,7 +49,21 @@ if __name__ == "__main__":
             api_url=args.provider_url,
             model_name=args.model_name
         )
+        steps = result.steps
+        solution = SolutionOutput(
+            task_id=str(task.task_id),
+            benchmark="mbpp",
+            success=result.answer is not None,
+            solution=result.answer or "",
+            iterations=len(steps),
+            total_requests=sum(1 + s.retries for s in steps),
+            total_input_tokens=sum(s.input_tokens for s in steps),
+            total_output_tokens=sum(s.output_tokens for s in steps),
+            total_time_seconds=time.monotonic() - start,
+            steps=steps,
+            system_prompt=SYSTEM,
+            error=result.error,
+        )
+        Path(args.output).write_text(solution.model_dump_json(indent=2))
     finally:
         sandbox.shutdown()
-
-    print(answer)
