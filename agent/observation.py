@@ -1,3 +1,6 @@
+"""Format sandbox results into messages for the LLM."""
+
+
 from sandbox.results import Results
 
 
