@@ -11,7 +11,7 @@ def send_request(
     api_key: str,
     msgs: list[dict[str, str]],
     timeout_limit: int,
-    stop: tuple[str, ...] = ("<end_code>",),
+    stop: tuple[str, ...] = ("<end_code>", "Observation:"),
     max_tokens: int | None = None
 ) -> RequestData:
     """Send one chat completion request and return the result.
