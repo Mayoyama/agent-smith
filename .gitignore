@@ -4,6 +4,7 @@ admin/
 moulinette/
 .vscode
 llm_test*.py
+pyrightconfig.json
 
 # Python-generated files
 __pycache__/
