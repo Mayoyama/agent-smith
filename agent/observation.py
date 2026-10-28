@@ -5,7 +5,15 @@ from sandbox.results import Results
 
 
 def format_observation(res: Results, timeout: int) -> str:
-    """Turn a sandbox Results into a message for the LLM."""
+    """Turn a sandbox Results into a message for the LLM.
+
+    Args:
+        res: Result of the sandbox execution.
+        timeout: Execution timeout in seconds, shown if it was hit.
+
+    Returns:
+        The observation text, or "(no output)" if nothing to report.
+    """
     parts: list[str] = []
 
     if res.output:
@@ -30,7 +38,11 @@ def format_observation(res: Results, timeout: int) -> str:
 
 
 def no_code_observation() -> str:
-    """Message sent when the LLM reply contains no code block."""
+    """Message sent when the LLM reply contains no code block.
+
+    Returns:
+        A reminder asking for a Thought and exactly one python block.
+    """
     return (
         "No ```python block found in your reply. "
         "Reply with a Thought, then exactly one ```python block."

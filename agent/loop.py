@@ -2,7 +2,6 @@
 
 
 import time
-
 from typing import Callable
 from dataclasses import dataclass
 
@@ -20,6 +19,13 @@ Messages = list[dict[str, str]]
 
 @dataclass
 class RunResult:
+    """Outcome of an agent run.
+
+    Attributes:
+        answer: Final answer produced by the agent, or None if it failed.
+        steps: Metrics recorded for each executed step.
+        error: Reason the run stopped without an answer, or None.
+    """
     answer: str | None
     steps: list[StepMetrics]
     error: str | None
@@ -28,7 +34,15 @@ class RunResult:
 def make_generate(
         model_name: str, provider_url: str
 ) -> Callable[[Messages, int], tuple[RequestData, int]]:
-    """Return generate(messages, max_tokens) bound to one model/provider."""
+    """Return generate(messages, max_tokens) bound to one model/provider.
+
+    Args:
+        model_name: Name of the model, as declared in models_config.json.
+        provider_url: URL of the provider serving the model.
+
+    Returns:
+        A function returning the LLM response data and the retry count.
+    """
     model_data = validate_llm_providers(
         "models_config.json", model_name, provider_url
     )
@@ -36,6 +50,15 @@ def make_generate(
     def generate(
             messages: Messages, max_tokens: int
     ) -> tuple[RequestData, int]:
+        """Send messages to the LLM, capping the output at 400 tokens.
+
+        Args:
+            messages: Conversation history sent to the model.
+            max_tokens: Requested output budget (capped at 400).
+
+        Returns:
+            The response data and the number of retries needed.
+        """
         return handle_request(
             model_data, messages, 60, max_tokens=min(max_tokens, 400))
     return generate
@@ -54,7 +77,25 @@ def run_agent(
     api_url: str,
     model_name: str,
 ) -> RunResult:
-    """Run the loop. Return the answer, the steps and the error if any."""
+    """Run the loop. Return the answer, the steps and the error if any.
+
+    Args:
+        task: Task given to the agent as the first user message.
+        system_prompt: System prompt describing the expected behavior.
+        generate: LLM call function, as returned by make_generate.
+        sandbox: Sandbox used to execute the generated code.
+        max_iterations: Maximum number of steps.
+        max_input_tokens: Cumulative input token budget.
+        max_output_tokens: Cumulative output token budget.
+        max_time_sec: Wall-clock time budget in seconds.
+        exec_timeout: Sandbox execution timeout, used to format
+            observations.
+        api_url: API URL recorded in each step's metrics.
+        model_name: Model name recorded in each step's metrics.
+
+    Returns:
+        A RunResult with the answer, the steps and the error if any.
+    """
     messages: Messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": task},
