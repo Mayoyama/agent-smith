@@ -31,13 +31,16 @@ The interactive sandbox is started with `uv run sandbox`, optionally followed by
 
 The MBPP tool server runs over stdio by default. Start it with `python mcp_tools_mbpp.py --http [--port N]` to serve it over streamable HTTP instead, at `http://127.0.0.1:N/mcp` (port 8000 by default).
 
+The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. It works on the repository at `TESTBED_PATH` (`/testbed` if unset). `run_tests` also needs `SWE_TASK_FILE`, the path to the task JSON, to read the eval script.
+
 [↑ Back to top](#top)
 
 ## System Architecture
 
 - `sandbox/`: the sandbox (`sandbox.py`), its child process (`child_process.py`), security restrictions (`security.py`), output streaming (`output_stream.py`), config loading (`config.py`), `final_answer` (`final_answer.py`), the MCP client (`mcp_client.py`) and the REPL (`repl.py`).
-- `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), task loading and the agent CLI parser (`task_loader.py`), pipe messages (`messages.py`), size-limited output collection (`output_collector.py`) and the tool server CLI parser (`tool_arg_parser.py`).
+- `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), JSON loading into Pydantic models (`json_loader.py`), the agent and tool server CLI parsers (`arg_parsers.py`), pipe messages (`messages.py`) and size-limited output collection (`output_collector.py`).
 - `mcp_tools_mbpp.py`: MCP server with the MBPP tools.
+- `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`).
 - `agent_mbpp/`, `agent_swebench/`: agent entry points.
 
 [↑ Back to top](#top)
@@ -77,6 +80,21 @@ MCP tools are injected into the namespace as wrapper functions. A call is sent f
 The server supports stdio and streamable HTTP (see Instructions).
 
 ### SWE-bench Tools
+
+Each tool is registered in `mcp_tools_swebench.py` as a thin wrapper that resolves paths, turns errors into `ToolError` messages the LLM can read, and truncates long output. The implementations in `swebench_tools/` never touch the repository directly: they read, write and run commands through a workspace (`WorkspaceBase`). `LocalWorkspace` works on a local folder; a Docker workspace can be added later without changing the tools.
+
+The subject leaves several details of the tools open (V.4, V.5). The choices made, and why:
+
+- **Return values:** the subject describes some outputs only as "output", and doesn't say what `run_tests()` returns. The return value is the only thing the LLM gets back, so every tool returns its result as text; `run_tests()` returns the eval script's exit code, stdout and stderr.
+- **Paths:** relative paths are resolved from the repository root, `TESTBED_PATH`. If it isn't set, `/testbed` is used, the repository's location in the SWE-bench containers.
+- **`read_file`:** lines are numbered from 1, like `cat -n`. An `end_line` past the end of the file returns the rest of the file with a note giving its line count, instead of an error.
+- **`edit_file`:** `old_str` must occur exactly once; otherwise nothing is changed and the error says how often it was found. This avoids editing the wrong place silently. After a `.py` file is edited, a warning is added if it no longer compiles (required by V.1).
+- **`list_files`:** `pattern` is a shell-style file name pattern (e.g. `*.py`). Subdirectories are searched, `.git` is skipped, and only files are listed.
+- **`search_code`:** `pattern` is an extended regex (`grep -E`), `file_pattern` a shell-style pattern for which files to search, and the whole repository is searched.
+- **`search_function_or_class_definition_in_code`:** finds lines that define the name with `def`, `async def` or `class`.
+- **`find_references`:** the subject doesn't say what `filepath` and `line` are for. They are used to leave the definition itself out of the results.
+- **`get_patch`:** new, untracked files are included in the diff (`git add -N`), so a fix that adds a file is complete. An empty diff returns a message instead of an empty string.
+- **Long output:** tool results longer than 10,000 characters keep their start and end with a marker saying how much was cut, so the LLM knows output is missing (V.1). `get_patch` is never cut, since a cut patch would be broken.
 
 [↑ Back to top](#top)
 
