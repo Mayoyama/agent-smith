@@ -1,7 +1,6 @@
 from common.models_public import MBPPTaskInput
 
 
-
 SYSTEM = r"""You solve Python tasks by writing and running code.
 
 Each turn: one short Thought (one sentence, never compute by hand), then ONE python code block, then <end_code>.
@@ -39,3 +38,8 @@ def build_prompt(task: MBPPTaskInput) -> str:
     """Build the user message from the MBPP task."""
     tests = "\n".join(task.test_list)
     return f"{task.task_definition}\n\nSignature:\n{task.function_definition}\n\nTests:\n{tests}"
+
+
+def build_system_prompt(manual: str) -> str:
+    """Append the sandbox manual to the base system prompt."""
+    return f"{SYSTEM}\nAvailable functions:\n{manual}"
