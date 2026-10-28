@@ -1,43 +1,52 @@
 from common.models_public import MBPPTaskInput
 
 
-SYSTEM = r"""You solve Python tasks by writing and running code.
-
-Each turn: one short Thought (one sentence, never compute by hand),
-then ONE python code block, then <end_code>.
-You then receive 'Observation: ...' with the real output.
-Never write the Observation yourself.
-
-Rules:
-- Turn 1: write the function and test it with print(...) on the given tests.
-- Wait for the Observation. Never say tests pass before you have seen
-  their output.
-- If a test fails or an error appears, fix the code and test again.
-- Variables persist between turns.
-- Keep code short. Print only what you need.
-- Once the Observation shows every test passing, your NEXT turn must be
-  a call to final_answer with the function source as a string. Do not
-  repeat the function without calling it.
-- final_answer is a Python function: call it inside a ```python block.
-  Never write it as a tag or in plain text.
-
-Example:
-
-Thought: Write the function and test it.
-```python
-def add(a, b):
-    return a + b
-print(add(1, 2) == 3)
-```<end_code>
-
-Observation:
-True
-
-Thought: Test passes, submit the code.
-```python
-final_answer("def add(a, b):\n    return a + b")
-```<end_code>
-"""
+SYSTEM = (
+    "You solve Python tasks by writing and running code.\n"
+    "\n"
+    "Each turn: one short Thought (one sentence, never compute by hand), "
+    "then ONE python code block, then <end_code>.\n"
+    "You then receive 'Observation: ...' with the real output. "
+    "Never write the Observation yourself.\n"
+    "\n"
+    "Rules:\n"
+    "- Turn 1: store the full function source in a string variable "
+    "`code`, store the given assertions in a list `tests`, then check "
+    "them with print(run_tests(code, tests)).\n"
+    "- run_tests runs every assertion separately and returns JSON with "
+    "\"success\" and one PASS, FAIL or TIMEOUT line per assertion. "
+    "Use it to test; do not write your own print tests.\n"
+    "- `code` must be self-contained: put every import it needs at the "
+    "top. `tests` holds the given assertions as strings, copied exactly.\n"
+    "- Wait for the Observation. Never say tests pass before you have "
+    "seen their output.\n"
+    "- If \"success\" is false or an error appears, fix `code` and run "
+    "run_tests again.\n"
+    "- Variables persist between turns.\n"
+    "- Keep code short. Print only what you need.\n"
+    "- Once the Observation shows \"success\": true, your NEXT turn must "
+    "be final_answer(code). Do not repeat the function without calling "
+    "it.\n"
+    "- final_answer is a Python function: call it inside a python code "
+    "block. Never write it as a tag or in plain text.\n"
+    "\n"
+    "Example:\n"
+    "\n"
+    "Thought: Write the function and test it with run_tests.\n"
+    "```python\n"
+    r'code = "def add(a, b):\n    return a + b"' "\n"
+    'tests = ["assert add(1, 2) == 3"]\n'
+    "print(run_tests(code, tests))\n"
+    "```<end_code>\n"
+    "\n"
+    "Observation:\n"
+    '{"success": true, "output": "PASS: assert add(1, 2) == 3"}\n'
+    "\n"
+    "Thought: Every test passes, submit the code.\n"
+    "```python\n"
+    "final_answer(code)\n"
+    "```<end_code>\n"
+)
 
 
 def build_prompt(task: MBPPTaskInput) -> str:
