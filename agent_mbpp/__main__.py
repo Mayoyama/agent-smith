@@ -9,7 +9,7 @@ from pathlib import Path
 
 from agent.loop import make_generate, run_agent
 from agent_mbpp.mcp_setup import connect_mbpp_tools
-from agent_mbpp.prompt import SYSTEM, build_prompt, build_system_prompt
+from agent_mbpp.prompt import build_prompt, build_system_prompt
 from common.models_public import MBPPTaskInput
 from common import json_loader, setup_agent_parser
 from common import SolutionOutput
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         start: float = time.monotonic()
         result = run_agent(
             task=build_prompt(task),
-            system_prompt=SYSTEM,
+            system_prompt=system_prompt,
             generate=generate,
             sandbox=sandbox,
             max_iterations=MAX_ITERATIONS,
@@ -72,7 +72,7 @@ if __name__ == "__main__":
             total_output_tokens=sum(s.output_tokens for s in steps),
             total_time_seconds=time.monotonic() - start,
             steps=steps,
-            system_prompt=SYSTEM,
+            system_prompt=system_prompt,
             error=result.error,
         )
         Path(args.output).write_text(solution.model_dump_json(indent=2))
