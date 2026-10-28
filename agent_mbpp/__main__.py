@@ -8,7 +8,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from agent.loop import make_generate, run_agent
-from agent_mbpp.prompt import SYSTEM, build_prompt
+from agent_mbpp.mcp_setup import connect_mbpp_tools
+from agent_mbpp.prompt import SYSTEM, build_prompt, build_system_prompt
 from common.models_public import MBPPTaskInput
 from common import json_loader, setup_agent_parser
 from common import SolutionOutput
@@ -36,9 +37,15 @@ if __name__ == "__main__":
     except (ValueError, RuntimeError) as e:
         print(f"LLM setup error: {e}", file=sys.stderr)
         sys.exit(1)
+
     sandbox = Sandbox(get_default_config())
+    client = connect_mbpp_tools(sandbox)
+    if client is None:
+        sandbox.shutdown()
+        sys.exit(1)
 
     try:
+        system_prompt: str = build_system_prompt(sandbox.get_manual(client))
         start: float = time.monotonic()
         result = run_agent(
             task=build_prompt(task),
