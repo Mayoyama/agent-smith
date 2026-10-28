@@ -1,8 +1,10 @@
 """SWE-bench tool implementations, wrapped by mcp_tools_swebench.py."""
 
 from .file_management import read_file, edit_file, list_files
-from .execution import run_command
-from .tool_workspace import BackendBase
+from .execution import run_command, run_tests, get_patch
+from .search import (search_code, find_references,
+                     search_function_or_class_definition_in_code)
+from .tool_workspace import WorkspaceBase
 from .local_workspace import LocalWorkspace
 
 __all__ = [
@@ -10,6 +12,11 @@ __all__ = [
     "edit_file",
     "list_files",
     "run_command",
-    "BackendBase",
+    "run_tests",
+    "get_patch",
+    "search_code",
+    "search_function_or_class_definition_in_code",
+    "find_references",
+    "WorkspaceBase",
     "LocalWorkspace",
 ]

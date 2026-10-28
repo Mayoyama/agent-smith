@@ -1,10 +1,10 @@
 """File system tools for the SWE-bench MCP server."""
 
-from .tool_workspace import BackendBase
+from .tool_workspace import WorkspaceBase, RunResults
 import io
 
 
-def read_file(workspace: BackendBase,
+def read_file(workspace: WorkspaceBase,
               filepath: str,
               start_line: int,
               end_line: int
@@ -12,6 +12,7 @@ def read_file(workspace: BackendBase,
     """Read a range of lines from a file, numbered from 1.
 
     Args:
+        workspace: Workspace the file is read through.
         filepath: Path to the file.
         start_line: First line to read, at least 1.
         end_line: Last line to read, not less than start_line. If it is past
@@ -23,7 +24,8 @@ def read_file(workspace: BackendBase,
 
     Raises:
         ValueError: If start_line is less than 1, end_line is less than
-            start_line, or start_line is past the end of the file.
+            start_line, start_line is past the end of the file, or the file is
+            not valid UTF-8.
         OSError: If the file can't be opened or read.
     """
 
@@ -58,11 +60,29 @@ def read_file(workspace: BackendBase,
     return line_strings
 
 
-def edit_file(workspace: BackendBase,
+def edit_file(workspace: WorkspaceBase,
               filepath: str,
               old_str: str,
               new_str: str
               ) -> tuple[str, str]:
+    """Replace one exact, unique string in a file.
+
+    Args:
+        workspace: Workspace the file is read and written through.
+        filepath: Path to the file.
+        old_str: Text to replace; it must occur exactly once.
+        new_str: Replacement text.
+
+    Returns:
+        A success message with the line of the edit, and the new file content
+        for the caller's syntax check.
+
+    Raises:
+        ValueError: If old_str is not found, occurs more than once, or the file
+            is not valid UTF-8.
+        OSError: If the file can't be read or written.
+    """
+
     content = workspace.read_from_file(filepath)
     occurrences = content.count(old_str)
 
@@ -81,12 +101,32 @@ def edit_file(workspace: BackendBase,
     return f"Successfully replaced old_str at line {found}", new_content
 
 
-def list_files(workspace: BackendBase,
+def list_files(workspace: WorkspaceBase,
                directory: str,
                pattern: str,
                timeout: int
                ) -> str:
-    workdir_check = workspace.execute_command(
+    """List files below a directory whose names match a pattern.
+
+    Runs find through the workspace, so subdirectories are searched too and
+    .git is skipped.
+
+    Args:
+        workspace: Workspace the commands run in.
+        directory: Directory to search.
+        pattern: Shell-style pattern matched against file names.
+        timeout: Seconds before each command is stopped.
+
+    Returns:
+        The number of files found, then one path per line, or a message if
+        nothing matched.
+
+    Raises:
+        ValueError: If the directory doesn't exist or find fails.
+        RuntimeError: If a command can't be started.
+    """
+
+    workdir_check: RunResults = workspace.execute_command(
         ["test", "-d", directory],
         workspace.root_path,
         timeout,
@@ -95,7 +135,7 @@ def list_files(workspace: BackendBase,
     if workdir_check.exit_code != 0:
         raise ValueError(f"{directory} does not exist or is not a directory")
 
-    res = workspace.execute_command(
+    res: RunResults = workspace.execute_command(
         ["find", directory, "-type", "f", "-name", pattern,
          "-not", "-path", "*/.git/*"],
         workspace.root_path,
@@ -108,4 +148,6 @@ def list_files(workspace: BackendBase,
     if not res.std_out:
         return f"no files in the directory matched '{pattern}'"
 
-    return res.std_out
+    count = len(res.std_out.splitlines())
+
+    return f"{count} files\n" + res.std_out
