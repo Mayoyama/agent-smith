@@ -93,6 +93,9 @@ The server supports stdio and streamable HTTP (see Instructions).
 - https://github.com/python/typeshed/blob/main/stdlib/builtins.pyi
 - Asyncio: https://www.youtube.com/watch?v=K56nNuBEd0c
 - Asyncio: https://www.youtube.com/watch?v=Qb9s3UiMSTA
+- [Tech With Tim - Build Your Own Agentic Harness in Python](https://www.youtube.com/watch?v=H5o1P8RMiMw)
+- [Agentic Loops AI - Agentic AI Engineering](https://github.com/agenticloops-ai/agentic-ai-engineering)
+- [Hugging Face - Agents Course](https://huggingface.co/learn/agents-course/en/unit0/introduction)
 
 ### AI Usage
 
