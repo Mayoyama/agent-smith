@@ -8,7 +8,7 @@ Runs over stdio by default, or over streamable HTTP with --http
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from common.models_public import SWEBenchTaskInput
-from common import parse_tool_args, OutputCollector, loader
+from common import parse_tool_args, OutputCollector, json_loader
 import swebench_tools
 import os
 
@@ -343,7 +343,7 @@ def run_tests() -> str:
     if not swe_task_file:
         raise ToolError("no task given: set SWE_TASK_FILE to the task JSON")
 
-    task = loader(swe_task_file, SWEBenchTaskInput)
+    task = json_loader(swe_task_file, SWEBenchTaskInput)
 
     if not task:
         raise ToolError("task file could not be loaded")

@@ -38,7 +38,7 @@ The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. It w
 ## System Architecture
 
 - `sandbox/`: the sandbox (`sandbox.py`), its child process (`child_process.py`), security restrictions (`security.py`), output streaming (`output_stream.py`), config loading (`config.py`), `final_answer` (`final_answer.py`), the MCP client (`mcp_client.py`) and the REPL (`repl.py`).
-- `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), task loading and the agent CLI parser (`task_loader.py`), pipe messages (`messages.py`), size-limited output collection (`output_collector.py`) and the tool server CLI parser (`tool_arg_parser.py`).
+- `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), JSON loading into Pydantic models (`json_loader.py`), the agent and tool server CLI parsers (`arg_parsers.py`), pipe messages (`messages.py`) and size-limited output collection (`output_collector.py`).
 - `mcp_tools_mbpp.py`: MCP server with the MBPP tools.
 - `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`).
 - `agent_mbpp/`, `agent_swebench/`: agent entry points.
