@@ -78,3 +78,4 @@ if __name__ == "__main__":
         Path(args.output).write_text(solution.model_dump_json(indent=2))
     finally:
         sandbox.shutdown()
+        client.close()
