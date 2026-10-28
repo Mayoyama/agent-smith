@@ -56,7 +56,7 @@ def send_request(
 
     if reply.status_code == 200:
         json_data = reply.json()
-        reply_text = json_data["choices"][0]["message"]["content"]
+        reply_text = json_data["choices"][0]["message"].get("content")
         input_tokens = json_data["usage"]["prompt_tokens"]
         output_tokens = json_data["usage"]["completion_tokens"]
 
