@@ -27,8 +27,7 @@ def cut_after_first_block(text: str) -> str:
         text: Raw LLM answer that may contain fenced code blocks.
 
     Returns:
-        The text up to and including the closing fence of the first
-        block, or the unchanged text if no block is found.
+        The text up to the end of the first block, or unchanged if none.
     """
     match = CODE_BLOCK.search(text)
     return text[: match.end()] if match else text
