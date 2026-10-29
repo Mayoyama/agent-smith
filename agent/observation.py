@@ -12,7 +12,7 @@ def format_observation(res: Results, timeout: int) -> str:
         timeout: Execution timeout in seconds, shown if it was hit.
 
     Returns:
-        The observation text, or "(no output)" if nothing to report.
+        The observation text or to use print() if there is nothing to report.
     """
     parts: list[str] = []
 
@@ -34,7 +34,7 @@ def format_observation(res: Results, timeout: int) -> str:
     if res.truncated:
         parts.append("(output truncated: print less or read fewer lines)")
 
-    return "\n".join(parts) or "(no output)"
+    return "\n".join(parts) or "(no output: use print() to see results)"
 
 
 def no_code_observation() -> str:
