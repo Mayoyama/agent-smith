@@ -27,6 +27,7 @@ def read_file(workspace: WorkspaceBase,
             start_line, start_line is past the end of the file, or the file is
             not valid UTF-8.
         OSError: If the file can't be opened or read.
+        RuntimeError: If the workspace fails to run the read, e.g. Docker.
     """
 
     if start_line < 1:
@@ -81,6 +82,8 @@ def edit_file(workspace: WorkspaceBase,
         ValueError: If old_str is not found, occurs more than once, or the file
             is not valid UTF-8.
         OSError: If the file can't be read or written.
+        RuntimeError: If the workspace fails to run the read or write, e.g.
+            Docker.
     """
 
     content = workspace.read_from_file(filepath)

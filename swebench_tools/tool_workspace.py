@@ -52,6 +52,7 @@ class WorkspaceBase(ABC):
         Raises:
             OSError: If the file can't be read.
             ValueError: If the file is not valid UTF-8.
+            RuntimeError: If the workspace fails to run the read, e.g. Docker.
         """
 
         pass
@@ -66,6 +67,7 @@ class WorkspaceBase(ABC):
 
         Raises:
             OSError: If the file can't be written.
+            RuntimeError: If the workspace fails to run the write, e.g. Docker.
         """
 
         pass
@@ -90,6 +92,7 @@ class WorkspaceBase(ABC):
 
         Raises:
             TypeError: If command is not a str or a list of str.
+            ValueError: If timeout is not greater than 0.
             RuntimeError: If the command can't be started.
         """
 
