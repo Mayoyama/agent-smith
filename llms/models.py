@@ -82,6 +82,8 @@ class RequestData(BaseModel):
         response_time_in_ms: Wall-clock time of the HTTP request in
             milliseconds.
         reply_code: HTTP status code of the response.
+        retry_after: Seconds the provider asked to wait before retrying, or
+            None if it gave no time or the request succeeded.
     """
 
     text: str
@@ -89,3 +91,4 @@ class RequestData(BaseModel):
     output_tokens: int = Field(ge=0)
     response_time_in_ms: float = Field(ge=0.0)
     reply_code: int = Field(ge=0)
+    retry_after: float | None = None
