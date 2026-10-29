@@ -28,4 +28,4 @@ build-backend = "hatchling.build"
 
 # hatchling looks for packages by name (list all top level packages here)
 [tool.hatch.build.targets.wheel]
-packages = ["sandbox", "common", "agent_mbpp", "agent_swebench", "swebench_tools", "llms"]
+packages = ["sandbox", "common", "agent_mbpp", "agent_swebench", "swebench_tools", "llms", "agent"]

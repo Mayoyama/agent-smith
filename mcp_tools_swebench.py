@@ -1,33 +1,66 @@
 """MCP server with the SWE-bench tools.
 
-Relative file paths are resolved from TESTBED_PATH (/testbed if it is unset).
-Runs over stdio by default, or over streamable HTTP with --http
-(http://127.0.0.1:PORT/mcp, port 8000 unless --port is given).
+With TESTBED_PATH set, the tools work on that local folder. Otherwise the
+server starts the Docker container of the task in SWE_TASK_FILE, works on
+/testbed inside it and removes it on exit or SIGTERM. Relative file paths are
+resolved from the repository root. Runs over stdio by default, or over
+streamable HTTP with --http (http://127.0.0.1:PORT/mcp, port 8000 unless --port
+is given).
 """
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from common.models_public import SWEBenchTaskInput
 from common import parse_tool_args, OutputCollector, json_loader
+from typing import Any
+from enum import Enum
 import swebench_tools
+import signal
+import sys
 import os
 
 
 SEARCH_TIMEOUT_LIMIT: int = 20
 EXEC_TIMEOUT_LIMIT: int = 30
 TEST_TIMEOUT_LIMIT: int = 280
+DOCKER_BOOT_LIMIT: int = 300
 OUTPUT_LIMIT: int = 10000
-TESTBED_PATH: str = os.environ.get("TESTBED_PATH", "/testbed")
+TESTBED_PATH: str = os.environ.get("TESTBED_PATH", "")
 MCP_SERVER: MCPServer = MCPServer()
-WORKSPACE: swebench_tools.WorkspaceBase = \
-    swebench_tools.LocalWorkspace(TESTBED_PATH)
+WORKSPACE: swebench_tools.WorkspaceBase
+
+
+class MCPServerMode(Enum):
+    """Where the tools work: a local folder or a Docker container."""
+
+    LOCAL = "local"
+    DOCKER = "docker"
+
+
+def handle_sigterm(signum: int, frame: Any) -> None:
+    """Exit on SIGTERM so that the cleanup in the main block runs.
+
+    Further SIGTERMs are ignored, so they can't interrupt the cleanup.
+
+    Args:
+        signum: Number of the received signal.
+        frame: Current stack frame, unused.
+    """
+
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    del frame
+
+    if signum == signal.SIGTERM:
+        print("Terminating program", file=sys.stderr)
+        sys.exit(0)
 
 
 def get_absolute_path(filepath: str) -> str:
     """Resolve a path against the repository root.
 
     Args:
-        filepath: Path from the LLM, absolute or relative to TESTBED_PATH.
+        filepath: Path from the LLM, absolute or relative to the repository
+            root.
 
     Returns:
         The normalised absolute path.
@@ -86,7 +119,7 @@ def read_file(filepath: str, start_line: int, end_line: int) -> str:
             end_line
         )
 
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, RuntimeError) as e:
         raise ToolError(str(e)) from e
 
     return get_truncated_text(res)
@@ -121,7 +154,7 @@ def edit_file(filepath: str, old_str: str, new_str: str) -> str:
         res_line, new_content = swebench_tools.edit_file(
             WORKSPACE, abs_path, old_str, new_str)
 
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, RuntimeError) as e:
         raise ToolError(str(e)) from e
 
     if filepath.endswith(".py"):
@@ -391,10 +424,46 @@ def get_patch() -> str:
 
 
 if __name__ == "__main__":
+    mode = MCPServerMode.LOCAL
+    signal.signal(signal.SIGTERM, handler=handle_sigterm)
+
     args = parse_tool_args("swebench")
 
-    if args.http:
-        MCP_SERVER.run(transport="streamable-http", port=args.port)
+    if TESTBED_PATH:
+        WORKSPACE = swebench_tools.LocalWorkspace(TESTBED_PATH)
 
     else:
-        MCP_SERVER.run()
+        try:
+            swe_task_file = os.environ.get("SWE_TASK_FILE", None)
+
+            if not swe_task_file:
+                raise ValueError("SWE_TASK_FILE not set: "
+                                 "needed for Docker mode")
+
+            eval_task = json_loader(swe_task_file, SWEBenchTaskInput)
+
+            if not eval_task:
+                raise RuntimeError("task file could not be loaded")
+
+            docker_workspace = swebench_tools.DockerWorkspace(
+                SEARCH_TIMEOUT_LIMIT)
+            docker_workspace.docker_run(
+                eval_task.docker_image, DOCKER_BOOT_LIMIT)
+            WORKSPACE = docker_workspace
+
+        except (ValueError, RuntimeError) as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
+
+        mode = MCPServerMode.DOCKER
+
+    try:
+        if args.http:
+            MCP_SERVER.run(transport="streamable-http", port=args.port)
+
+        else:
+            MCP_SERVER.run()
+
+    finally:
+        if mode == MCPServerMode.DOCKER:
+            docker_workspace.docker_remove(60)

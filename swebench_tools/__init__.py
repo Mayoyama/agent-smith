@@ -6,6 +6,7 @@ from .search import (search_code, find_references,
                      search_function_or_class_definition_in_code)
 from .tool_workspace import WorkspaceBase
 from .local_workspace import LocalWorkspace
+from .docker_workspace import DockerWorkspace
 
 __all__ = [
     "read_file",
@@ -19,4 +20,5 @@ __all__ = [
     "find_references",
     "WorkspaceBase",
     "LocalWorkspace",
+    "DockerWorkspace"
 ]
