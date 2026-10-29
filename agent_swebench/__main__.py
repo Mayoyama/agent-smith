@@ -9,6 +9,7 @@ from pathlib import Path
 
 from agent.loop import make_generate, run_agent
 from agent_swebench.mcp_setup import connect_swebench_tools
+from agent_swebench.prompt import build_prompt, build_system_prompt
 from common.models_public import SWEBenchTaskInput
 from common import json_loader, setup_agent_parser
 from common import SolutionOutput
@@ -47,9 +48,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        system_prompt: str = sandbox.get_manual(client)
+        system_prompt: str = build_system_prompt(sandbox.get_manual(client))
         result = run_agent(
-            task=task.problem_statement,
+            task=build_prompt(task),
             system_prompt=system_prompt,
             generate=generate,
             sandbox=sandbox,
