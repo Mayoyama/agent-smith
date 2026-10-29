@@ -61,23 +61,23 @@ PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mb
 ## Agent Loop
 
 The loop is in `agent/loop.py` (`run_agent`). It starts from a system prompt and the task as the first user message, then repeats up to `max_iterations` times:
- 
+
 1. The limits are checked before each request: wall-clock time, cumulative output tokens, and cumulative input tokens (the next request is assumed to be as large as the last one). If one is exceeded, the loop stops and `error` names it (`max_time`, `max_output_tokens`, `max_input_tokens`, or `max_iterations` when the steps run out).
 2. The LLM is called. Its reply is cut after the first fenced code block, which removes any `Observation:` the model wrote itself, and the first `python` block is extracted.
 3. The code runs in the sandbox. Its output becomes the next user message, `Observation: ...`. A reply without a code block gets a reminder asking for a Thought and exactly one block instead.
 4. If the code calls `final_answer()`, the loop ends and the answer is returned.
 Each step is recorded as a `StepMetrics` (tokens, request time, raw LLM output, sandbox input and output, retries, API URL and model), and the agent entry points build the `SolutionOutput` from them. Observations (`agent/observation.py`) contain the printed output, the last three lines of an error, and a note when the run timed out, the sandbox restarted (variables lost) or the output was truncated.
- 
+
 The LLM layer is in `llms/`. `make_generate` binds the loop to one model and one provider: the provider is chosen from `models_config.json` by its `base_url`, and its keys are read from `.env` (`<key_prefix>_1`, `<key_prefix>_2`, ...). Requests go to `<base_url>/chat/completions` with a 60-second timeout, the stop sequence `<end_code>`, and a cap of 400 output tokens per generation. `handle_request` tries the keys in order: a 401 or 429 moves to the next key, a 5xx, timeout or connection error is retried up to 3 times on the same key (2 seconds apart) before moving on, and any other error code stops the run. When every key has failed, the run ends with the error `all keys failed`. There is no fallback between providers: a run uses one.
- 
+
 ### MBPP Agent
- 
+
 `agent_mbpp/` runs the loop with a short budget: 10 iterations, 6,000 input tokens, 1,500 output tokens, 120 seconds. `mcp_setup.py` starts `mcp_tools_mbpp.py` over stdio and adds its tools to the sandbox, and the sandbox manual is appended to the system prompt (`prompt.py`). The prompt tells the model to put its function in a string `code` and the given assertions in a list `tests`, check them with `run_tests(code, tests)`, fix and repeat until `success` is true, then call `final_answer(code)`. The answer is the function source; the output has `benchmark="mbpp"`. If the MCP connection fails, the agent prints a clear error and exits with code 1. The sandbox and the MCP client are always closed in a `finally`.
- 
+
 ### SWE-bench Agent
  
 `agent_swebench/` runs the same loop with the SWE-bench limits: 30 iterations, 300,000 input tokens, 10,000 output tokens, 900 seconds. The time budget counts from the start of the process, so the container start-up is included.
- 
+
 - **Connection:** `mcp_setup.py` sets `SWE_TASK_FILE` to the absolute path of the task JSON, removes `TESTBED_PATH` from the environment (otherwise the server would work on a local folder instead of Docker), and starts `mcp_tools_swebench.py` over stdio. The server starts the task's container and removes it when it exits. The agent never manages Docker itself.
 - **Prompt:** `prompt.py` builds the first message from the repository, the issue and the hints (if any). The system prompt asks the model to explore with the search tools, read small line ranges, make the smallest `edit_file` change, never edit test files, and read the test results in the `run_tests` output rather than its exit code (the eval script always exits with 0). Once the tests pass, the model submits `final_answer(get_patch())`.
 - **Output:** `benchmark="swebench"`, `task_id` is the instance id, and `solution` is the git patch.
