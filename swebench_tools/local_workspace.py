@@ -35,7 +35,7 @@ class LocalWorkspace(WorkspaceBase):
                 content = f.read()
 
         except OSError as e:
-            raise OSError(f"error reading file: {e}")
+            raise OSError(f"error reading file: {e}") from e
 
         except UnicodeDecodeError as e:
             raise ValueError("Invalid UTF-8 text in filepath "
@@ -59,7 +59,7 @@ class LocalWorkspace(WorkspaceBase):
                 f.write(content)
 
         except OSError as e:
-            raise OSError(f"error writing to file: {e}")
+            raise OSError(f"error writing to file: {e}") from e
 
     def execute_command(self,
                         command: str | list[str],
@@ -81,8 +81,12 @@ class LocalWorkspace(WorkspaceBase):
 
         Raises:
             TypeError: If command is not a str or a list of str.
+            ValueError: If timeout is not greater than 0.
             RuntimeError: If the command can't be started.
         """
+
+        if timeout <= 0:
+            raise ValueError("timeout must be greater than 0")
 
         if not isinstance(command, (str, list)):
             raise TypeError("command must be str or list[str]")

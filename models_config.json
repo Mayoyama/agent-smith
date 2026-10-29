@@ -14,6 +14,11 @@
             "name": "openrouter",
             "base_url": "https://openrouter.ai/api/v1",
             "key_prefix": "OPENROUTER_API_KEY"
+        },
+        {
+            "name": "mistral",
+            "base_url": "https://api.mistral.ai/v1",
+            "key_prefix": "MISTRAL_API_KEY"
         }
     ]
 }

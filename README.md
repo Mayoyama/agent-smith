@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by .*
+*This project has been created as part of the 42 curriculum by speterse, jpik.*
 
 <a id="top"></a>
 
@@ -31,7 +31,7 @@ The interactive sandbox is started with `uv run sandbox`, optionally followed by
 
 The MBPP tool server runs over stdio by default. Start it with `python mcp_tools_mbpp.py --http [--port N]` to serve it over streamable HTTP instead, at `http://127.0.0.1:N/mcp` (port 8000 by default).
 
-The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. It works on the repository at `TESTBED_PATH` (`/testbed` if unset). `run_tests` also needs `SWE_TASK_FILE`, the path to the task JSON, to read the eval script.
+The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. With `TESTBED_PATH` set, it works on that local folder. Otherwise it starts the Docker container of the task JSON at `SWE_TASK_FILE` and works on `/testbed` inside it; Docker must be running. `run_tests` reads the eval script from `SWE_TASK_FILE` in both modes.
 
 [↑ Back to top](#top)
 
@@ -40,7 +40,7 @@ The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. It w
 - `sandbox/`: the sandbox (`sandbox.py`), its child process (`child_process.py`), security restrictions (`security.py`), output streaming (`output_stream.py`), config loading (`config.py`), `final_answer` (`final_answer.py`), the MCP client (`mcp_client.py`) and the REPL (`repl.py`).
 - `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), JSON loading into Pydantic models (`json_loader.py`), the agent and tool server CLI parsers (`arg_parsers.py`), pipe messages (`messages.py`) and size-limited output collection (`output_collector.py`).
 - `mcp_tools_mbpp.py`: MCP server with the MBPP tools.
-- `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`).
+- `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`, `docker_workspace.py`).
 - `agent_mbpp/`, `agent_swebench/`: agent entry points.
 
 [↑ Back to top](#top)
@@ -81,12 +81,13 @@ The server supports stdio and streamable HTTP (see Instructions).
 
 ### SWE-bench Tools
 
-Each tool is registered in `mcp_tools_swebench.py` as a thin wrapper that resolves paths, turns errors into `ToolError` messages the LLM can read, and truncates long output. The implementations in `swebench_tools/` never touch the repository directly: they read, write and run commands through a workspace (`WorkspaceBase`). `LocalWorkspace` works on a local folder; a Docker workspace can be added later without changing the tools.
+Each tool is registered in `mcp_tools_swebench.py` as a thin wrapper that resolves paths, turns errors into `ToolError` messages the LLM can read, and truncates long output. The implementations in `swebench_tools/` never touch the repository directly: they read, write and run commands through a workspace (`WorkspaceBase`). `LocalWorkspace` works on a local folder, `DockerWorkspace` inside the task's container through `docker exec`.
 
 The subject leaves several details of the tools open (V.4, V.5). The choices made, and why:
 
 - **Return values:** the subject describes some outputs only as "output", and doesn't say what `run_tests()` returns. The return value is the only thing the LLM gets back, so every tool returns its result as text; `run_tests()` returns the eval script's exit code, stdout and stderr.
-- **Paths:** relative paths are resolved from the repository root, `TESTBED_PATH`. If it isn't set, `/testbed` is used, the repository's location in the SWE-bench containers.
+- **Paths:** relative paths are resolved from the repository root: `TESTBED_PATH` locally, `/testbed` in the container.
+- **Docker (V.4):** the sandbox runs on the host and the tools reach into the container (option b). The tool server owns the container: it is removed when the server exits or gets SIGTERM, and stops by itself after 20 minutes if the server is killed with SIGKILL. Shell commands run through `bash -lc` so the task's conda environment is active, and every command is stopped by `timeout` inside the container.
 - **`read_file`:** lines are numbered from 1, like `cat -n`. An `end_line` past the end of the file returns the rest of the file with a note giving its line count, instead of an error.
 - **`edit_file`:** `old_str` must occur exactly once; otherwise nothing is changed and the error says how often it was found. This avoids editing the wrong place silently. After a `.py` file is edited, a warning is added if it no longer compiles (required by V.1).
 - **`list_files`:** `pattern` is a shell-style file name pattern (e.g. `*.py`). Subdirectories are searched, `.git` is skipped, and only files are listed.
