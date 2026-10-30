@@ -22,6 +22,7 @@ MAX_ITERATIONS = 30
 MAX_INPUT_TOKENS = 300000
 MAX_OUTPUT_TOKENS = 10000
 MAX_TIME_SECONDS = 900
+TIME_MARGIN_SECONDS = 360
 
 
 def fetch_patch(client: MCPClient) -> str:
@@ -68,7 +69,8 @@ if __name__ == "__main__":
             max_iterations=MAX_ITERATIONS,
             max_input_tokens=MAX_INPUT_TOKENS,
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            max_time_sec=MAX_TIME_SECONDS - int(time.monotonic() - start),
+            max_time_sec=(MAX_TIME_SECONDS - TIME_MARGIN_SECONDS
+                          - int(time.monotonic() - start)),
             exec_timeout=sandbox.config.max_execution_time_seconds,
             api_url=args.provider_url,
             model_name=args.model_name,
