@@ -24,6 +24,9 @@ MAX_TIME_SECONDS = 900
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+
     start: float = time.monotonic()
     parser: ArgumentParser = setup_agent_parser()
     args = parser.parse_args()
@@ -38,8 +41,6 @@ if __name__ == "__main__":
     except (ValueError, RuntimeError) as e:
         print(f"LLM setup error: {e}", file=sys.stderr)
         sys.exit(1)
-
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
 
     sandbox = Sandbox(get_default_config())
     client = connect_swebench_tools(sandbox, args.task_file)

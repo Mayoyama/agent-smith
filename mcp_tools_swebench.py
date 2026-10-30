@@ -15,6 +15,7 @@ from common import parse_tool_args, OutputCollector, json_loader
 from typing import Any
 from enum import Enum
 import swebench_tools
+import asyncio
 import signal
 import sys
 import os
@@ -457,6 +458,9 @@ if __name__ == "__main__":
 
         mode = MCPServerMode.DOCKER
 
+    interrupted_err130 = False
+    interrupted_err1 = False
+
     try:
         if args.http:
             MCP_SERVER.run(transport="streamable-http", port=args.port)
@@ -464,6 +468,20 @@ if __name__ == "__main__":
         else:
             MCP_SERVER.run()
 
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        interrupted_err130 = True
+
+    except Exception:
+        interrupted_err1 = True
+
     finally:
         if mode == MCPServerMode.DOCKER:
             docker_workspace.docker_remove(60)
+
+    if interrupted_err130:
+        print("Program terminated", file=sys.stderr)
+        os._exit(130)
+
+    if interrupted_err1:
+        print("Program terminated", file=sys.stderr)
+        os._exit(1)

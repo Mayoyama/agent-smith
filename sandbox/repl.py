@@ -67,6 +67,16 @@ def repl() -> None:
 
         sys.exit(1)
 
+    except KeyboardInterrupt:
+        print("Program terminated", file=sys.stderr)
+
+        if mcp_client:
+            mcp_client.close()
+
+        sandbox.shutdown()
+
+        sys.exit(130)
+
     print(sandbox.get_manual(mcp_client))
 
     try:
@@ -81,12 +91,20 @@ def repl() -> None:
 
             except KeyboardInterrupt:
                 print()
+
                 continue
 
             if line.strip() == "exit":
                 break
 
-            res: Results = sandbox.run_exec(line)
+            try:
+                res: Results = sandbox.run_exec(line)
+
+            except KeyboardInterrupt:
+                print("interrupted, sandbox state reset")
+                sandbox.restart_child_process()
+
+                continue
 
             if res.final_ans is not None:
                 print(res.final_ans)
