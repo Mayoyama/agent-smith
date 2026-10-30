@@ -63,6 +63,18 @@ class LLMModelData(BaseModel):
     @field_validator("base_url")
     @classmethod
     def validate_url(cls, value: str) -> str:
+        """Check that base_url starts with http:// or https://.
+
+        Args:
+            value: The base_url to check.
+
+        Returns:
+            The unchanged base_url.
+
+        Raises:
+            ValueError: If base_url starts with neither.
+        """
+
         if (not value.startswith("http://")
                 and not value.startswith("https://")):
             raise ValueError("base_url must start with http:// or https://")

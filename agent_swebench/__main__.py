@@ -11,8 +11,7 @@ from agent.loop import make_generate, run_agent
 from agent_swebench.mcp_setup import connect_swebench_tools
 from agent_swebench.prompt import build_prompt, build_system_prompt
 from common.models_public import SWEBenchTaskInput
-from common import json_loader, setup_agent_parser
-from common import SolutionOutput
+from common import json_loader, setup_agent_parser, SolutionOutput
 from sandbox.config import get_default_config
 from sandbox.sandbox import Sandbox
 
@@ -64,11 +63,19 @@ if __name__ == "__main__":
             model_name=args.model_name,
         )
         steps = result.steps
+        ans = result.answer
+        if not ans and MAX_TIME_SECONDS - int(time.monotonic() - start) > 30:
+            try:
+                res = sandbox.run_exec("final_answer(get_patch())")
+                if res.final_ans and res.final_ans.startswith("diff --git"):
+                    ans = res.final_ans
+            except Exception:
+                pass
         solution = SolutionOutput(
             task_id=task.instance_id,
             benchmark="swebench",
             success=result.answer is not None,
-            solution=result.answer or "",
+            solution=ans or "",
             iterations=len(steps),
             total_requests=sum(1 + s.retries for s in steps),
             total_input_tokens=sum(s.input_tokens for s in steps),

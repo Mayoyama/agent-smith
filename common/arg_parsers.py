@@ -7,8 +7,8 @@ def setup_agent_parser() -> ArgumentParser:
     """Build the command-line parser shared by both agents.
 
     Returns:
-        A parser with --task-file and --output (required) and --model-name and
-        --provider-url (optional).
+        A parser with the required options --task-file, --output, --model-name
+        and --provider-url.
     """
 
     parser = ArgumentParser(description="argument parser")
@@ -46,8 +46,8 @@ def setup_agent_parser() -> ArgumentParser:
 def parse_tool_args(server: str = "mbpp") -> Namespace:
     """Parse the command line of an MCP tool server.
 
-    Every server gets --http (serve over streamable HTTP instead of stdio) and
-    --port. Options only one server needs are added based on the server name.
+    Both servers get --http (serve over streamable HTTP instead of stdio) and
+    --port; the server name is only checked.
 
     Args:
         server: Which server is starting, "mbpp" or "swebench".

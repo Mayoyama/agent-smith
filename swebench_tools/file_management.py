@@ -79,8 +79,9 @@ def edit_file(workspace: WorkspaceBase,
         for the caller's syntax check.
 
     Raises:
-        ValueError: If old_str is not found, occurs more than once, or the file
-            is not valid UTF-8.
+        ValueError: If old_str is not found (the message then gives the lines
+            where its first line appears, if any), occurs more than once, or
+            the file is not valid UTF-8.
         OSError: If the file can't be read or written.
         RuntimeError: If the workspace fails to run the read or write, e.g.
             Docker.

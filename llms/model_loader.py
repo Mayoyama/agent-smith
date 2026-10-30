@@ -14,9 +14,10 @@ def validate_llm_providers(config_path: str,
 
     Loads .env into the environment (a missing file only prints a warning),
     loads the provider config and picks the provider whose base_url matches
-    provider_url, ignoring trailing slashes. Its keys are read from the
-    numbered variables <key_prefix>_1, <key_prefix>_2 and so on, until one is
-    missing.
+    provider_url, ignoring trailing slashes. Its keys are read from the plain
+    variable <key_prefix>, then from the numbered variables <key_prefix>_1,
+    <key_prefix>_2 and so on until one is missing or empty; empty values are
+    skipped.
 
     Args:
         config_path: Path to the provider config JSON file.
@@ -52,6 +53,11 @@ def validate_llm_providers(config_path: str,
 
     api_keys: list[str] = []
 
+    base_key = os.environ.get(llm_provider.key_prefix)
+
+    if base_key:
+        api_keys.append(base_key)
+
     index = 1
 
     while True:
@@ -59,14 +65,15 @@ def validate_llm_providers(config_path: str,
 
         key = os.environ.get(key_string, None)
 
-        if key is None:
-            if index == 1:
-                raise ValueError(f"missing api key {key_string}")
-
+        if not key:
             break
 
         api_keys.append(key)
         index += 1
+
+    if not api_keys:
+        raise ValueError(f"missing api key: set {llm_provider.key_prefix} or"
+                         f" {llm_provider.key_prefix}_1")
 
     model_data = LLMModelData(
         base_url=llm_provider.base_url,
