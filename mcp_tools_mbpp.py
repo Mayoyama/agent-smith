@@ -7,8 +7,10 @@ Runs over stdio by default, or over streamable HTTP with --http
 from mcp.server.mcpserver import MCPServer
 from common import OutputCollector, parse_tool_args
 import subprocess
+import asyncio
 import json
 import sys
+import os
 
 
 MCP_SERVER = MCPServer()
@@ -99,8 +101,17 @@ def run_tests(code: str, test_list: list[str]) -> str:
 if __name__ == "__main__":
     args = parse_tool_args()
 
-    if args.http:
-        MCP_SERVER.run(transport="streamable-http", port=args.port)
+    try:
+        if args.http:
+            MCP_SERVER.run(transport="streamable-http", port=args.port)
 
-    else:
-        MCP_SERVER.run()
+        else:
+            MCP_SERVER.run()
+
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        print("Program terminated", file=sys.stderr)
+        os._exit(130)
+
+    except Exception:
+        print("Program terminated", file=sys.stderr)
+        os._exit(1)

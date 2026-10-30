@@ -3,6 +3,7 @@
 
 import sys
 import time
+import signal
 
 from argparse import ArgumentParser
 from pathlib import Path
@@ -24,6 +25,9 @@ MAX_TIME_SECONDS = 120
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+    signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+
     parser: ArgumentParser = setup_agent_parser()
     args = parser.parse_args()
 
