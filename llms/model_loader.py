@@ -7,9 +7,11 @@ import dotenv
 import os
 
 
-def validate_llm_providers(config_path: str,
-                           model_name: str,
-                           provider_url: str) -> LLMModelData:
+def validate_llm_providers(
+    config_path: str,
+    model_name: str,
+    provider_url: str,
+) -> LLMModelData:
     """Find the provider for a URL and collect its API keys.
 
     Loads .env into the environment (a missing file only prints a warning),

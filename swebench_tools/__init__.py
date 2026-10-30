@@ -20,5 +20,5 @@ __all__ = [
     "find_references",
     "WorkspaceBase",
     "LocalWorkspace",
-    "DockerWorkspace"
+    "DockerWorkspace",
 ]

@@ -3,11 +3,12 @@
 from .tool_workspace import WorkspaceBase, RunResults
 
 
-def run_command(workspace: WorkspaceBase,
-                command: str,
-                workdir: str,
-                timeout: int,
-                ) -> RunResults:
+def run_command(
+    workspace: WorkspaceBase,
+    command: str,
+    workdir: str,
+    timeout: int,
+) -> RunResults:
     """Run a shell command in a directory through the workspace.
 
     Args:
@@ -37,10 +38,11 @@ def run_command(workspace: WorkspaceBase,
     return workspace.execute_command(command, workdir, timeout)
 
 
-def run_tests(workspace: WorkspaceBase,
-              eval_script: str,
-              timeout: int,
-              ) -> RunResults:
+def run_tests(
+    workspace: WorkspaceBase,
+    eval_script: str,
+    timeout: int,
+) -> RunResults:
     """Run an evaluation script with bash in the repository root.
 
     Args:

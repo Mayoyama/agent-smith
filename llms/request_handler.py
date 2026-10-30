@@ -80,13 +80,14 @@ def get_retry_after_value(reply: requests.Response) -> float | None:
     return None
 
 
-def send_request(model_data: LLMModelData,
-                 api_key: str,
-                 msgs: list[dict[str, str]],
-                 timeout_limit: int,
-                 stop: tuple[str, ...] = ("<end_code>", "Observation:"),
-                 max_tokens: int | None = None,
-                 ) -> RequestData:
+def send_request(
+    model_data: LLMModelData,
+    api_key: str,
+    msgs: list[dict[str, str]],
+    timeout_limit: int,
+    stop: tuple[str, ...] = ("<end_code>", "Observation:"),
+    max_tokens: int | None = None,
+) -> RequestData:
     """Send one chat completion request and return the result.
 
     Posts the messages to <base_url>/chat/completions with the given key and
@@ -161,12 +162,13 @@ def send_request(model_data: LLMModelData,
     return reply_data
 
 
-def handle_request(model_data: LLMModelData,
-                   msgs: list[dict[str, str]],
-                   timeout_limit: int,
-                   stop: tuple[str, ...] = ("<end_code>", "Observation:"),
-                   max_tokens: int | None = None,
-                   ) -> tuple[RequestData, int]:
+def handle_request(
+    model_data: LLMModelData,
+    msgs: list[dict[str, str]],
+    timeout_limit: int,
+    stop: tuple[str, ...] = ("<end_code>", "Observation:"),
+    max_tokens: int | None = None,
+) -> tuple[RequestData, int]:
     """Send a request, retrying and switching API keys as needed.
 
     The keys are tried in order. A 401 moves on to the next key. A 429 waits

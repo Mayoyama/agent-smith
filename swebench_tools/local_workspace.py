@@ -61,10 +61,12 @@ class LocalWorkspace(WorkspaceBase):
         except OSError as e:
             raise OSError(f"error writing to file: {e}") from e
 
-    def execute_command(self,
-                        command: str | list[str],
-                        directory: str,
-                        timeout: int) -> RunResults:
+    def execute_command(
+        self,
+        command: str | list[str],
+        directory: str,
+        timeout: int,
+    ) -> RunResults:
         """Run a command with subprocess in a local directory.
 
         A string is run through the shell; a list is run directly, without a

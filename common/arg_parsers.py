@@ -17,28 +17,28 @@ def setup_agent_parser() -> ArgumentParser:
         type=str,
         required=True,
         help="path to the task JSON",
-        )
+    )
 
     parser.add_argument(
         "--output",
         type=str,
         required=True,
-        help="path where solution.json gets written"
-        )
+        help="path where solution.json gets written",
+    )
 
     parser.add_argument(
         "--model-name",
         type=str,
         required=True,
-        help="model/name"
-        )
+        help="model/name",
+    )
 
     parser.add_argument(
         "--provider-url",
         type=str,
         required=True,
-        help="URL for the api"
-        )
+        help="URL for the api",
+    )
 
     return parser
 

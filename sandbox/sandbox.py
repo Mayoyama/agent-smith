@@ -115,9 +115,9 @@ class Sandbox:
         return self._wait_for_result()
 
     def _run_request(
-            self,
-            msg: ToolCall | ResourceRequest | PromptRequest
-            ) -> str:
+        self,
+        msg: ToolCall | ResourceRequest | PromptRequest,
+    ) -> str:
         """Run one request from the child on the MCP client.
 
         Resource and prompt requests have their arguments checked first; tool

@@ -73,13 +73,13 @@ class Security:
         self.resolved_dirs = [os.path.realpath(d) for d in self.allowed_dirs]
 
     def safe_import(
-            self,
-            name: str,
-            globals: Mapping[str, Any] | None = None,
-            locals: Mapping[str, Any] | None = None,
-            fromlist: Sequence[str] | None = None,
-            level: int = 0
-            ) -> ModuleType:
+        self,
+        name: str,
+        globals: Mapping[str, Any] | None = None,
+        locals: Mapping[str, Any] | None = None,
+        fromlist: Sequence[str] | None = None,
+        level: int = 0,
+    ) -> ModuleType:
         """Import a module if it is on the allowlist.
 
         Replaces __import__ for sandboxed code. Submodules named in fromlist

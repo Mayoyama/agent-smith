@@ -73,11 +73,12 @@ class WorkspaceBase(ABC):
         pass
 
     @abstractmethod
-    def execute_command(self,
-                        command: str | list[str],
-                        directory: str,
-                        timeout: int
-                        ) -> RunResults:
+    def execute_command(
+        self,
+        command: str | list[str],
+        directory: str,
+        timeout: int,
+    ) -> RunResults:
         """Run a command and return its output.
 
         Args:
