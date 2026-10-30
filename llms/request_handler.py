@@ -135,6 +135,12 @@ def send_request(model_data: LLMModelData,
         input_tokens = json_data["usage"]["prompt_tokens"]
         output_tokens = json_data["usage"]["completion_tokens"]
 
+        if isinstance(reply_text, list):
+            reply_text = "".join(
+                part.get("text", "") for part in reply_text
+                if part.get("type") == "text"
+            )
+
         if reply_text is None:
             reply_text = ""
 
@@ -159,7 +165,6 @@ def send_request(model_data: LLMModelData,
         )
 
     return reply_data
-
 
 def handle_request(model_data: LLMModelData,
                    msgs: list[dict[str, str]],
