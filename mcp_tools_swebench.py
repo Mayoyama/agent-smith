@@ -25,6 +25,7 @@ SEARCH_TIMEOUT_LIMIT: int = 20
 EXEC_TIMEOUT_LIMIT: int = 30
 TEST_TIMEOUT_LIMIT: int = 280
 DOCKER_BOOT_LIMIT: int = 300
+STDERR_LENGTH_LIMIT: int = 2000
 OUTPUT_LIMIT: int = 10000
 TESTBED_PATH: str = os.environ.get("TESTBED_PATH", "")
 MCP_SERVER: MCPServer = MCPServer()
@@ -173,14 +174,14 @@ def edit_file(filepath: str, old_str: str, new_str: str) -> str:
 
 
 @MCP_SERVER.tool()
-def list_files(directory: str, pattern: str) -> str:
+def list_files(directory: str, pattern: str = "*") -> str:
     """List files in a directory and its subdirectories by name pattern.
 
     Args:
         directory: Directory to search, absolute or relative to the repository
             root.
         pattern: Shell-style pattern matched against file names only, e.g.
-            "*.py".
+            "*.py". Defaults to all files.
 
     Returns:
         The number of files found, then one absolute file path per line (.git
@@ -392,8 +393,14 @@ def run_tests() -> str:
     except (OSError, ValueError, RuntimeError) as e:
         raise ToolError(str(e)) from e
 
+    std_err = res.std_err
+
+    if len(std_err) > STDERR_LENGTH_LIMIT:
+        cut_chars = len(std_err) - STDERR_LENGTH_LIMIT
+        std_err = f"[{cut_chars} chars cut]\n" + std_err[-STDERR_LENGTH_LIMIT:]
+
     res_string = (f"exit code:\n{res.exit_code}\nstdout:\n"
-                  f"{res.std_out}\nstderr:\n{res.std_err}")
+                  f"{res.std_out}\nstderr:\n{std_err}")
 
     return get_truncated_text(res_string)
 

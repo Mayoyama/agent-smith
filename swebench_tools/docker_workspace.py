@@ -70,7 +70,9 @@ class DockerWorkspace(WorkspaceBase):
             raise RuntimeError(f"error starting docker: {e}") from e
 
         if res.returncode != 0:
-            raise RuntimeError(f"error starting docker: {res.stderr}")
+            err = res.stderr.strip() or res.stdout.strip()
+
+            raise RuntimeError(f"error starting docker: {err}")
 
         self.img_id = res.stdout.strip()
 

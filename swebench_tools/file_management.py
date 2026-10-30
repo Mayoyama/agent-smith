@@ -90,7 +90,28 @@ def edit_file(workspace: WorkspaceBase,
     occurrences = content.count(old_str)
 
     if occurrences == 0:
-        raise ValueError(f"old_str not found in {filepath}")
+        msg = f"old_str not found in {filepath}"
+        first_line = (old_str.strip().splitlines()[0].strip()
+                      if old_str.strip()
+                      else "")
+
+        if first_line:
+            found_pos = []
+
+            for i, line in enumerate(content.splitlines(), start=1):
+                if first_line in line:
+                    found_pos.append(str(i))
+
+            if found_pos:
+                msg += (f"; its first line appears at line(s) "
+                        f"{', '.join(found_pos[:5])}")
+
+                if len(found_pos) > 5:
+                    msg += f" (and {len(found_pos) - 5} more)"
+
+                msg += ": read_file those lines and copy them exactly"
+
+        raise ValueError(msg)
 
     if occurrences > 1:
         raise ValueError(f"old_str found {occurrences} times in "
