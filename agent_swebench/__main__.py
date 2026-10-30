@@ -14,6 +14,7 @@ from common.models_public import SWEBenchTaskInput
 from common import json_loader, setup_agent_parser
 from common import SolutionOutput
 from sandbox.config import get_default_config
+from sandbox.mcp_client import MCPClient
 from sandbox.sandbox import Sandbox
 
 
@@ -21,6 +22,15 @@ MAX_ITERATIONS = 30
 MAX_INPUT_TOKENS = 300000
 MAX_OUTPUT_TOKENS = 10000
 MAX_TIME_SECONDS = 900
+
+
+def fetch_patch(client: MCPClient) -> str:
+    """Return the repository diff, or "" if there is none."""
+    try:
+        patch: str = client.call_tool("get_patch", {})
+    except Exception:
+        return ""
+    return patch if patch.startswith("diff") else ""
 
 
 if __name__ == "__main__":
@@ -63,12 +73,13 @@ if __name__ == "__main__":
             api_url=args.provider_url,
             model_name=args.model_name,
         )
+        answer: str = result.answer or fetch_patch(client)
         steps = result.steps
         solution = SolutionOutput(
             task_id=task.instance_id,
             benchmark="swebench",
             success=result.answer is not None,
-            solution=result.answer or "",
+            solution=answer,
             iterations=len(steps),
             total_requests=sum(1 + s.retries for s in steps),
             total_input_tokens=sum(s.input_tokens for s in steps),
