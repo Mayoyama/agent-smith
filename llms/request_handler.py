@@ -166,6 +166,7 @@ def send_request(model_data: LLMModelData,
 
     return reply_data
 
+
 def handle_request(model_data: LLMModelData,
                    msgs: list[dict[str, str]],
                    timeout_limit: int,
