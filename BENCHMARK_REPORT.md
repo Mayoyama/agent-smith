@@ -7,7 +7,9 @@
 **Agent**: `agent_swebench` (Thought → Code → Observation loop, MCP tools
 running in the task's Docker container). Same prompt, tools and limits for
 every run: 30 iterations, 300,000 input tokens, 10,000 output tokens, 900 s,
-400 tokens max per model reply.
+400 tokens max per model reply. The 15 runs of section 2 were produced before
+the multi-format tool-call extraction (`agent/extract.py`) was added to the
+agent, and were not re-run with it.
 
 **Providers / models**
 
@@ -40,9 +42,11 @@ Tried and excluded:
 | `sympy__sympy-14711` | sympy | `Vector + 0` raises `TypeError` |
 
 Selection rationale: these are the three tasks the subject (section V.4)
-recommends as the simplest ones to start with. Using the same three tasks for
-every model keeps the comparison fair, and all three belong to the moulinette's
-exam pool.
+recommends for initial testing, and all three belong to the moulinette's exam
+pool (`EXAM_POOL`, 6 tasks). Using the same three tasks for every model keeps
+the comparison fair. They are not equally easy for our agent: sympy-14711
+takes 20 to 30 iterations, where the other two take 4 to 9 (except
+`ministral-3b-latest` on sympy-13480, 30 iterations), see section 2.
 
 **Validation**: every solution file is checked with `moulinette_eval validate
 swebench` (correctness + metrics). Pass/Fail below is the moulinette result,
@@ -176,37 +180,14 @@ ministral-3b on sympy-14711) fail either way.
 Limit: this is a counterfactual on fixed traces. A real re-run could behave
 differently because model output is not deterministic.
 
-## 6. Later changes and additional runs
+## 6. Conclusions
 
-**Multi-format extraction.** The extraction of tool calls in several formats
-(Python block, XML `<invoke>`, Hermes `<tool_call>`, ReAct `Action:` /
-`Action Input:`, in `agent/extract.py`) was added after the benchmark runs of
-sections 2 to 5. Those 15 runs were not re-run with it, so their results do
-not include its effect.
-
-**Additional runs on the exam pool.** The moulinette exam pool has 6 tasks.
-The benchmark covers 3 of them (sympy-13480, sympy-14711, xarray-4629). We ran
-`ministral-8b-latest` on the 3 others. All 3 passed the metrics check and the
-correctness check (`RESOLVED_FULL`).
-
-| Task | Iterations | Input tokens | Time (s) | Metrics | Correctness |
-|---|---|---|---|---|---|
-| django-11066 | 5 | 17,894 | 26.0 | YES | PASSED |
-| scikit-learn-13439 | 11 | 45,858 | 31.8 | YES | PASSED |
-| sympy-18189 | 7 | 27,678 | 53.7 | YES | PASSED |
-
-With these runs, `ministral-8b-latest` passes all 6 tasks of the exam pool.
-Each task was run once, so this is not a measure of variance.
-
-## 7. Conclusions
-
-- **Best candidate: `ministral-8b-latest`.** 3/3 on the benchmark tasks and
-  6/6 on the exam pool (section 6). It has the fewest iterations and tokens on
-  sympy-14711 among the models that pass it (20 iterations, 110,927 input
-  tokens). It submits as soon as its tests pass (0 extra iterations on all 3
-  tasks, section 4.2) and never needs the `get_patch` fallback. Caveat: its
-  sympy-14711 patch is broader than the issue asks (it returns the vector for
-  any `int`/`float`, not only `0`).
+- **Best candidate: `ministral-8b-latest`.** 3/3 on the benchmark tasks, with
+  the fewest iterations and tokens on sympy-14711 among the models that pass
+  it (20 iterations, 110,927 input tokens). It submits as soon as its tests
+  pass (0 extra iterations on all 3 tasks, section 4.2) and never needs the
+  `get_patch` fallback. Caveat: its sympy-14711 patch is broader than the
+  issue asks (it returns the vector for any `int`/`float`, not only `0`).
 - **`gemini-3.1-flash-lite`**: 3/3, but slower per request (2.7 s vs about
   1 s), limited to about 15 requests per minute on the free tier, and 2 extra
   iterations before submitting on sympy-13480.
