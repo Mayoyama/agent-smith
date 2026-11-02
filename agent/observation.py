@@ -1,6 +1,5 @@
 """Format sandbox results into messages for the LLM."""
 
-
 from sandbox.results import Results
 
 
@@ -14,6 +13,7 @@ def format_observation(res: Results, timeout: int) -> str:
     Returns:
         The observation text or to use print() if there is nothing to report.
     """
+
     parts: list[str] = []
 
     if res.output:
@@ -43,6 +43,7 @@ def no_code_observation() -> str:
     Returns:
         A reminder asking for a Thought and exactly one python block.
     """
+
     return (
         "No ```python block found in your reply. "
         "Reply with a Thought, then exactly one ```python block."

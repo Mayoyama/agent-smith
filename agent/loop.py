@@ -1,6 +1,5 @@
 """Agent loop: Thought -> Code -> Observation."""
 
-
 import time
 from typing import Callable
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ class RunResult:
         steps: Metrics recorded for each executed step.
         error: Reason the run stopped without an answer, or None.
     """
+
     answer: str | None
     steps: list[StepMetrics]
     error: str | None
@@ -43,6 +43,7 @@ def make_generate(
     Returns:
         A function returning the LLM response data and the retry count.
     """
+
     model_data = validate_llm_providers(
         "models_config.json", model_name, provider_url
     )
@@ -59,6 +60,7 @@ def make_generate(
         Returns:
             The response data and the number of retries needed.
         """
+
         return handle_request(
             model_data, messages, 60, max_tokens=min(max_tokens, 400))
     return generate
@@ -96,6 +98,7 @@ def run_agent(
     Returns:
         A RunResult with the answer, the steps and the error if any.
     """
+
     messages: Messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": task},

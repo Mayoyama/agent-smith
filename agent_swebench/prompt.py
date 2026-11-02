@@ -1,3 +1,5 @@
+"""System prompt and user message for the SWE-bench agent."""
+
 from common.models_public import SWEBenchTaskInput
 
 
@@ -58,7 +60,16 @@ SYSTEM = (
 
 
 def build_prompt(task: SWEBenchTaskInput) -> str:
-    """Build the user message from the SWE-bench task."""
+    """Build the user message from the SWE-bench task.
+
+    Args:
+        task: The SWE-bench task to solve.
+
+    Returns:
+        The repository name and the issue text, followed by the hints if the
+        task has any.
+    """
+
     prompt = (
         f"Repository: {task.repo}\n\n"
         f"Issue:\n{task.problem_statement}"
@@ -69,5 +80,14 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
 
 
 def build_system_prompt(manual: str) -> str:
-    """Append the sandbox manual to the base system prompt."""
+    """Append the sandbox manual to the base system prompt.
+
+    Args:
+        manual: Description of the sandbox functions, from
+            Sandbox.get_manual().
+
+    Returns:
+        SYSTEM followed by the manual under an "Available functions:" heading.
+    """
+
     return f"{SYSTEM}\nAvailable functions:\n{manual}"

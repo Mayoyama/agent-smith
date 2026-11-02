@@ -20,13 +20,32 @@ REACT = re.compile(r"Action:\s*(\w+)\s*\nAction Input:")
 
 
 def to_python_call(name: str, args: dict[str, Any]) -> str:
-    """Build `result = name(k=v, ...)` followed by `print(result)`."""
+    """Build Python code that calls a tool and prints the result.
+
+    Args:
+        name: Name of the tool function.
+        args: Keyword arguments for the call.
+
+    Returns:
+        The code result = name(key=value, ...) followed by print(result), with
+        each value written as its repr.
+    """
+
     params = ", ".join(f"{key}={value!r}" for key, value in args.items())
     return f"result = {name}({params})\nprint(result)"
 
 
 def parse_python(text: str) -> Match | None:
-    """Find the first fenced Python block."""
+    """Find the first fenced Python code block.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The block's start and end positions in text and its stripped code, or
+        None if there is no block.
+    """
+
     match = CODE_BLOCK.search(text)
     if match is None:
         return None
@@ -34,7 +53,15 @@ def parse_python(text: str) -> Match | None:
 
 
 def parse_value(raw: str) -> Any:
-    """Decode a JSON value (number, list...), else keep the raw string."""
+    """Decode a parameter value as JSON, e.g. a number or a list.
+
+    Args:
+        raw: The value as written in the answer.
+
+    Returns:
+        The decoded value, or raw unchanged if it is not valid JSON.
+    """
+
     try:
         return json.loads(raw)
     except ValueError:
@@ -42,7 +69,18 @@ def parse_value(raw: str) -> Any:
 
 
 def parse_xml(text: str) -> Match | None:
-    """Find the first <invoke> call and convert it."""
+    """Find the first XML <invoke> call and convert it to Python.
+
+    Its <parameter> values are decoded with parse_value.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The call's start and end positions in text and the equivalent Python
+        code, or None if there is no call.
+    """
+
     match = XML_INVOKE.search(text)
     if match is None:
         return None
@@ -52,7 +90,19 @@ def parse_xml(text: str) -> Match | None:
 
 
 def parse_hermes(text: str) -> Match | None:
-    """Find the first <tool_call>{json}</tool_call> and convert it."""
+    """Find the first Hermes <tool_call> and convert it to Python.
+
+    The tag holds JSON with "name" and "arguments"; the arguments may also be
+    a JSON string.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The call's start and end positions in text and the equivalent Python
+        code, or None if there is no call or its JSON is invalid.
+    """
+
     match = HERMES.search(text)
     if match is None:
         return None
@@ -68,7 +118,19 @@ def parse_hermes(text: str) -> Match | None:
 
 
 def parse_react(text: str) -> Match | None:
-    """Find the first Action / Action Input pair and convert it."""
+    """Find the first ReAct Action / Action Input and convert it to Python.
+
+    Action Input must be a JSON object; parsing stops at the end of it.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The pair's start and end positions in text, the end including the JSON
+        input, and the equivalent Python code, or None if there is no pair or
+        its input is not a valid JSON object.
+    """
+
     match = REACT.search(text)
     if match is None:
         return None
@@ -86,18 +148,47 @@ PARSERS = (parse_python, parse_xml, parse_hermes, parse_react)
 
 
 def first_match(text: str) -> Match | None:
-    """Return the earliest match among all formats, or None."""
+    """Find the earliest code block or tool call, whatever its format.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The match that starts first, as (start, end, Python code), or None if
+        no format matches.
+    """
+
     matches = [m for m in (parse(text) for parse in PARSERS) if m]
     return min(matches, default=None)
 
 
 def extract_code(text: str) -> str | None:
-    """Return the Python code of the first call/block, or None."""
+    """Return the Python code of the first code block or tool call.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The code, converted to Python for the other formats, or None if
+        nothing matches.
+    """
+
     match = first_match(text)
     return match[2] if match else None
 
 
 def cut_after_first_block(text: str) -> str:
-    """Drop everything after the first call/block."""
+    """Drop everything after the first code block or tool call.
+
+    Removes observations the model wrote itself after its code.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        The text up to the end of the first match, or text unchanged if
+        nothing matches.
+    """
+
     match = first_match(text)
     return text[: match[1]] if match else text
