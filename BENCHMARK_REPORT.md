@@ -1,7 +1,6 @@
 # Benchmark Report
 
-> DRAFT v3. Items marked **TODO** are not written yet. Each cell is a single
-> run, so there is no variance estimate.
+> Each cell is a single run, so there is no variance estimate.
 
 ## 1. Setup
 
@@ -177,17 +176,46 @@ ministral-3b on sympy-14711) fail either way.
 Limit: this is a counterfactual on fixed traces. A real re-run could behave
 differently because model output is not deterministic.
 
-## 6. Conclusions
+## 6. Later changes and additional runs
 
-Preliminary, to be confirmed after sections 4 and 5.
+**Multi-format extraction.** The extraction of tool calls in several formats
+(Python block, XML `<invoke>`, Hermes `<tool_call>`, ReAct `Action:` /
+`Action Input:`, in `agent/extract.py`) was added after the benchmark runs of
+sections 2 to 5. Those 15 runs were not re-run with it, so their results do
+not include its effect.
 
-- **Best candidate: `ministral-8b-latest`.** 3/3 on the tasks, and the fewest
-  iterations and tokens on sympy-14711 among the models that pass it (20
-  iterations, 110,927 input tokens), without relying on the fallback.
-- **`gemini-3.1-flash-lite`**: 3/3 but slower per request (2.7 s vs about 1 s)
-  and limited to about 15 requests per minute on the free tier.
-- **`ministral-14b-latest`**: 3/3, but its sympy-14711 pass needed all 30
-  iterations and the fallback.
+**Additional runs on the exam pool.** The moulinette exam pool has 6 tasks.
+The benchmark covers 3 of them (sympy-13480, sympy-14711, xarray-4629). We ran
+`ministral-8b-latest` on the 3 others. All 3 passed the metrics check and the
+correctness check (`RESOLVED_FULL`).
+
+| Task | Iterations | Input tokens | Time (s) | Metrics | Correctness |
+|---|---|---|---|---|---|
+| django-11066 | 5 | 17,894 | 26.0 | YES | PASSED |
+| scikit-learn-13439 | 11 | 45,858 | 31.8 | YES | PASSED |
+| sympy-18189 | 7 | 27,678 | 53.7 | YES | PASSED |
+
+With these runs, `ministral-8b-latest` passes all 6 tasks of the exam pool.
+Each task was run once, so this is not a measure of variance.
+
+## 7. Conclusions
+
+- **Best candidate: `ministral-8b-latest`.** 3/3 on the benchmark tasks and
+  6/6 on the exam pool (section 6). It has the fewest iterations and tokens on
+  sympy-14711 among the models that pass it (20 iterations, 110,927 input
+  tokens). It submits as soon as its tests pass (0 extra iterations on all 3
+  tasks, section 4.2) and never needs the `get_patch` fallback. Caveat: its
+  sympy-14711 patch is broader than the issue asks (it returns the vector for
+  any `int`/`float`, not only `0`).
+- **`gemini-3.1-flash-lite`**: 3/3, but slower per request (2.7 s vs about
+  1 s), limited to about 15 requests per minute on the free tier, and 2 extra
+  iterations before submitting on sympy-13480.
+- **`ministral-14b-latest`**: 3/3, but its sympy-14711 pass depends on the
+  fallback: its tests only pass at step 30, the last iteration, so it had no
+  step left to submit (sections 4.2 and 5).
+- **The `get_patch` fallback matters**: 13 PASS with it, 11 without
+  (section 5). It rescues 2 of 15 runs (`ministral-14b-latest` on
+  sympy-14711, `ministral-3b-latest` on sympy-13480).
 - **Disregarded**: `mistral-large-4` (reasoning model, incompatible with the
   400-token reply cap), `mistral-small-latest` and `mistral-medium-latest` (no
   free quota on our key), `ministral-3b-latest` (loops on failed edits, 2/3,
