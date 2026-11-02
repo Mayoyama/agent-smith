@@ -40,7 +40,10 @@ Tried and excluded:
 | `pydata__xarray-4629` | xarray | `merge(combine_attrs="override")` shares attrs with the first object |
 | `sympy__sympy-14711` | sympy | `Vector + 0` raises `TypeError` |
 
-Selection rationale: **TODO** (to be written by the authors).
+Selection rationale: these are the three tasks the subject (section V.4)
+recommends as the simplest ones to start with. Using the same three tasks for
+every model keeps the comparison fair, and all three belong to the moulinette's
+exam pool.
 
 **Validation**: every solution file is checked with `moulinette_eval validate
 swebench` (correctness + metrics). Pass/Fail below is the moulinette result,
