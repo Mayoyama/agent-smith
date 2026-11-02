@@ -14,7 +14,8 @@ MCP_SERVER_SCRIPT: Path = (
 
 
 def connect_swebench_tools(
-    sandbox: Sandbox, task_file: str
+    sandbox: Sandbox,
+    task_file: str,
 ) -> MCPClient | None:
     os.environ["SWE_TASK_FILE"] = str(Path(task_file).resolve())
     os.environ.pop("TESTBED_PATH", None)

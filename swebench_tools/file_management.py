@@ -4,11 +4,12 @@ from .tool_workspace import WorkspaceBase, RunResults
 import io
 
 
-def read_file(workspace: WorkspaceBase,
-              filepath: str,
-              start_line: int,
-              end_line: int
-              ) -> str:
+def read_file(
+    workspace: WorkspaceBase,
+    filepath: str,
+    start_line: int,
+    end_line: int,
+) -> str:
     """Read a range of lines from a file, numbered from 1.
 
     Args:
@@ -61,11 +62,12 @@ def read_file(workspace: WorkspaceBase,
     return line_strings
 
 
-def edit_file(workspace: WorkspaceBase,
-              filepath: str,
-              old_str: str,
-              new_str: str
-              ) -> tuple[str, str]:
+def edit_file(
+    workspace: WorkspaceBase,
+    filepath: str,
+    old_str: str,
+    new_str: str,
+) -> tuple[str, str]:
     """Replace one exact, unique string in a file.
 
     Args:
@@ -79,8 +81,9 @@ def edit_file(workspace: WorkspaceBase,
         for the caller's syntax check.
 
     Raises:
-        ValueError: If old_str is not found, occurs more than once, or the file
-            is not valid UTF-8.
+        ValueError: If old_str is not found (the message then gives the lines
+            where its first line appears, if any), occurs more than once, or
+            the file is not valid UTF-8.
         OSError: If the file can't be read or written.
         RuntimeError: If the workspace fails to run the read or write, e.g.
             Docker.
@@ -125,11 +128,12 @@ def edit_file(workspace: WorkspaceBase,
     return f"Successfully replaced old_str at line {found}", new_content
 
 
-def list_files(workspace: WorkspaceBase,
-               directory: str,
-               pattern: str,
-               timeout: int
-               ) -> str:
+def list_files(
+    workspace: WorkspaceBase,
+    directory: str,
+    pattern: str,
+    timeout: int,
+) -> str:
     """List files below a directory whose names match a pattern.
 
     Runs find through the workspace, so subdirectories are searched too and
@@ -160,8 +164,17 @@ def list_files(workspace: WorkspaceBase,
         raise ValueError(f"{directory} does not exist or is not a directory")
 
     res: RunResults = workspace.execute_command(
-        ["find", directory, "-type", "f", "-name", pattern,
-         "-not", "-path", "*/.git/*"],
+        [
+            "find",
+            directory,
+            "-type",
+            "f",
+            "-name",
+            pattern,
+            "-not",
+            "-path",
+            "*/.git/*",
+        ],
         workspace.root_path,
         timeout,
     )

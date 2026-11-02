@@ -3,11 +3,12 @@
 from .tool_workspace import WorkspaceBase, RunResults
 
 
-def search_code(workspace: WorkspaceBase,
-                pattern: str,
-                file_pattern: str,
-                timeout: int,
-                ) -> tuple[str, int]:
+def search_code(
+    workspace: WorkspaceBase,
+    pattern: str,
+    file_pattern: str,
+    timeout: int,
+) -> tuple[str, int]:
     """Search the repository with grep for lines matching a regex.
 
     Args:
@@ -27,8 +28,13 @@ def search_code(workspace: WorkspaceBase,
     """
 
     result: RunResults = workspace.execute_command(
-        ["grep", "-rnIE", "--include=" + file_pattern,
-         pattern, workspace.root_path],
+        [
+            "grep",
+            "-rnIE",
+            "--include=" + file_pattern,
+            pattern,
+            workspace.root_path,
+        ],
         workspace.root_path,
         timeout,
     )
@@ -49,10 +55,11 @@ def search_code(workspace: WorkspaceBase,
     return res_string, 0
 
 
-def search_function_or_class_definition_in_code(workspace: WorkspaceBase,
-                                                name: str,
-                                                timeout: int,
-                                                ) -> str:
+def search_function_or_class_definition_in_code(
+    workspace: WorkspaceBase,
+    name: str,
+    timeout: int,
+) -> str:
     """Find the lines where a function or class is defined.
 
     Uses search_code on .py files with a regex for def, async def or class
@@ -84,12 +91,13 @@ def search_function_or_class_definition_in_code(workspace: WorkspaceBase,
     return res
 
 
-def find_references(workspace: WorkspaceBase,
-                    name: str,
-                    filepath: str,
-                    line: int,
-                    timeout: int,
-                    ) -> str:
+def find_references(
+    workspace: WorkspaceBase,
+    name: str,
+    filepath: str,
+    line: int,
+    timeout: int,
+) -> str:
     """Find every line in the .py files that uses a name as a whole word.
 
     Results at filepath:line are left out, so the definition itself is not

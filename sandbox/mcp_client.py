@@ -168,10 +168,10 @@ class MCPClient:
             self._ready_signal.set()
 
     async def handle_resources_prompts(
-            self,
-            init_result: InitializeResult,
-            session: ClientSession
-            ) -> None:
+        self,
+        init_result: InitializeResult,
+        session: ClientSession,
+    ) -> None:
         """Record resource and prompt support and list the supported ones.
 
         Args:

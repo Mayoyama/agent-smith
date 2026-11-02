@@ -13,7 +13,8 @@ def repl() -> None:
 
     Connects to an MCP server if --mcp-stdio or --mcp-server is given, prints
     the manual, then executes each input line until exit, EOF or
-    final_answer().
+    final_answer(). Ctrl+C at the prompt is ignored; during a run it restarts
+    the child, so the namespace is lost.
     """
 
     parser = ArgumentParser(description="repl command-line argument parser")

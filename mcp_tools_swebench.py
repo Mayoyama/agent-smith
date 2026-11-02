@@ -147,7 +147,8 @@ def edit_file(filepath: str, old_str: str, new_str: str) -> str:
 
     Raises:
         ToolError: If old_str is not found or not unique, or the file can't be
-            read or written.
+            read or written. When old_str is not found, the message gives the
+            lines where its first line appears, if any.
     """
 
     abs_path = get_absolute_path(filepath)
@@ -318,7 +319,7 @@ def find_references(name: str, filepath: str, line: int) -> str:
 
 
 @MCP_SERVER.tool()
-def run_command(command: str, workdir: str) -> str:
+def run_command(command: str, workdir: str = '.') -> str:
     """Run a shell command in a directory.
 
     A command that runs past the time limit is stopped and reported with exit
@@ -327,7 +328,7 @@ def run_command(command: str, workdir: str) -> str:
     Args:
         command: Shell command to run.
         workdir: Directory to run it in, absolute or relative to the repository
-            root.
+            root. Defaults to the repository root.
 
     Returns:
         The exit code, stdout and stderr, each under its own heading. Long
@@ -361,12 +362,14 @@ def run_tests() -> str:
     """Run the task's evaluation script and return its results.
 
     The script installs the repository, applies the task's tests and runs them.
-    A script that runs past the time limit is stopped and reported with exit
-    code -1.
+    Its exit code comes from its last command, not from the tests, so read the
+    test summary in stdout. A script that runs past the time limit is stopped
+    and reported with exit code -1.
 
     Returns:
-        The exit code, stdout and stderr, each under its own heading. Long
-        output keeps its start and end, with a marker saying how much was cut.
+        The exit code, stdout and stderr, each under its own heading. Only the
+        last 2000 characters of stderr are kept. Long output keeps its start
+        and end, with a marker saying how much was cut.
 
     Raises:
         ToolError: If SWE_TASK_FILE is not set, the task file can't be loaded,

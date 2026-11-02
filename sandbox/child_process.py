@@ -15,9 +15,13 @@ import resource
 import signal
 
 
-def child_process(conn: connection.Connection, config: SandboxConfig,
-                  tool_names: list[str], supports_resources: bool,
-                  supports_prompts: bool) -> None:
+def child_process(
+    conn: connection.Connection,
+    config: SandboxConfig,
+    tool_names: list[str],
+    supports_resources: bool,
+    supports_prompts: bool,
+) -> None:
     """Run received code in a persistent namespace until told to stop.
 
     Gives the namespace restricted builtins, adds final_answer, one wrapper per
@@ -188,7 +192,7 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
         parent as a ToolCall and returns the text of the ToolResult.
     """
 
-    def toolCall_function(*args: Any, **kwargs: Any) -> str:
+    def tool_call_function(*args: Any, **kwargs: Any) -> str:
         """Send a tool request to the parent and wait for the result.
 
         Args:
@@ -216,4 +220,4 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
 
         return reply.text
 
-    return toolCall_function
+    return tool_call_function
