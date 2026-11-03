@@ -19,7 +19,9 @@ SYSTEM = (
     "\"success\" and one PASS, FAIL or TIMEOUT line per assertion. "
     "Use it to test; do not write your own print tests.\n"
     "- `code` must be self-contained: put every import it needs at the "
-    "top. `tests` holds the given assertions as strings, copied exactly.\n"
+    "top, including modules only the tests use (e.g. `import math` when a "
+    "test calls math.isclose), even if the task does not show the import. "
+    "`tests` holds the given assertions as strings, copied exactly.\n"
     "- Wait for the Observation. Never say tests pass before you have "
     "seen their output.\n"
     "- If \"success\" is false or an error appears, fix `code` and run "
@@ -58,15 +60,18 @@ def build_prompt(task: MBPPTaskInput) -> str:
 
     Returns:
         The task description, the function signature and the visible test
-        assertions, one per line.
+        assertions, one per line, followed by the test imports if any.
     """
 
     tests = "\n".join(task.test_list)
-    return (
+    prompt: str = (
         f"{task.task_definition}\n\n"
         f"Signature:\n{task.function_definition}\n\n"
         f"Tests:\n{tests}"
     )
+    if task.test_imports:
+        prompt += "\n\nTest imports:\n" + "\n".join(task.test_imports)
+    return prompt
 
 
 def build_system_prompt(manual: str) -> str:
