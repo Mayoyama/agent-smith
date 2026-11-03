@@ -1,3 +1,5 @@
+"""System prompt and user message for the MBPP agent."""
+
 from common.models_public import MBPPTaskInput
 
 
@@ -49,7 +51,16 @@ SYSTEM = (
 
 
 def build_prompt(task: MBPPTaskInput) -> str:
-    """Build the user message from the MBPP task."""
+    """Build the user message from the MBPP task.
+
+    Args:
+        task: The MBPP task to solve.
+
+    Returns:
+        The task description, the function signature and the visible test
+        assertions, one per line.
+    """
+
     tests = "\n".join(task.test_list)
     return (
         f"{task.task_definition}\n\n"
@@ -59,5 +70,14 @@ def build_prompt(task: MBPPTaskInput) -> str:
 
 
 def build_system_prompt(manual: str) -> str:
-    """Append the sandbox manual to the base system prompt."""
+    """Append the sandbox manual to the base system prompt.
+
+    Args:
+        manual: Description of the sandbox functions, from
+            Sandbox.get_manual().
+
+    Returns:
+        SYSTEM followed by the manual under an "Available functions:" heading.
+    """
+
     return f"{SYSTEM}\nAvailable functions:\n{manual}"

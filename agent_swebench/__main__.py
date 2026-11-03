@@ -1,4 +1,11 @@
-"""Entry point for the SWE bench agent."""
+"""Entry point for the SWE-bench agent.
+
+Loads the task, connects the SWE-bench tool server (which starts the task's
+Docker container) to the sandbox, runs the agent loop with
+TIME_MARGIN_SECONDS kept in reserve and writes solution.json to --output. If
+the model's answer is not a diff, the repository diff is submitted instead.
+Exits with code 1 on a setup error or SIGTERM, and 130 on Ctrl+C.
+"""
 
 import signal
 import sys
@@ -26,7 +33,16 @@ TIME_MARGIN_SECONDS = 360
 
 
 def fetch_patch(client: MCPClient) -> str:
-    """Return the repository diff, or "" if there is none."""
+    """Get the repository diff from the get_patch tool.
+
+    Args:
+        client: Connected client of the SWE-bench tool server.
+
+    Returns:
+        The diff, or "" if the tool call fails or its result does not start
+        with "diff".
+    """
+
     try:
         patch: str = client.call_tool("get_patch", {})
     except Exception:
@@ -75,7 +91,11 @@ if __name__ == "__main__":
             api_url=args.provider_url,
             model_name=args.model_name,
         )
-        answer: str = result.answer or fetch_patch(client)
+        answer: str = ""
+        if result.answer and result.answer.startswith("diff"):
+            answer = result.answer
+        else:
+            answer = fetch_patch(client)
         steps = result.steps
         solution = SolutionOutput(
             task_id=task.instance_id,

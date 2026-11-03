@@ -18,7 +18,7 @@ class DockerWorkspace(WorkspaceBase):
 
     Attributes:
         root_path: Root directory of the repository, /testbed.
-        img_id: ID of the running container, or "" if none is running.
+        container_id: ID of the running container, or "" if none is running.
         read_write_timeout: Seconds before a read or write is stopped.
     """
 
@@ -33,18 +33,18 @@ class DockerWorkspace(WorkspaceBase):
         """
 
         self.root_path = "/testbed"
-        self.img_id = ""
+        self.container_id = ""
 
         if read_write_timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
         self.read_write_timeout = read_write_timeout
 
-    def docker_run(self, eval_task: str, timeout: int) -> None:
+    def docker_run(self, image: str, timeout: int) -> None:
         """Start a detached container from an image and store its ID.
 
         Args:
-            eval_task: Docker image to start, e.g. the task's docker_image.
+            image: Docker image to start, e.g. the task's docker_image.
             timeout: Seconds to wait for docker run, image pull included.
 
         Raises:
@@ -55,8 +55,15 @@ class DockerWorkspace(WorkspaceBase):
         if timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
-        docker_cmd = ["docker", "run", "-d", "--rm",
-                      eval_task, "sleep", str(CONTAINER_LIFESPAN)]
+        docker_cmd = [
+            "docker",
+            "run",
+            "-d",
+            "--rm",
+            image,
+            "sleep",
+            str(CONTAINER_LIFESPAN),
+        ]
 
         try:
             res = subprocess.run(
@@ -74,7 +81,7 @@ class DockerWorkspace(WorkspaceBase):
 
             raise RuntimeError(f"error starting docker: {err}")
 
-        self.img_id = res.stdout.strip()
+        self.container_id = res.stdout.strip()
 
     def docker_remove(self, timeout: int = 10) -> None:
         """Remove the running container, if there is one, and clear its ID.
@@ -90,12 +97,12 @@ class DockerWorkspace(WorkspaceBase):
         if timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
-        if not self.img_id:
+        if not self.container_id:
             return
 
         try:
             res = subprocess.run(
-                ["docker", "rm", "-f", self.img_id],
+                ["docker", "rm", "-f", self.container_id],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -107,7 +114,7 @@ class DockerWorkspace(WorkspaceBase):
         if res.returncode != 0:
             raise RuntimeError(f"Error removing docker: {res.stderr}")
 
-        self.img_id = ""
+        self.container_id = ""
 
     def read_from_file(self, filepath: str) -> str:
         """Read a file in the container as UTF-8 text, with cat.
@@ -125,12 +132,19 @@ class DockerWorkspace(WorkspaceBase):
                 out.
         """
 
-        if not self.img_id:
+        if not self.container_id:
             raise RuntimeError("docker container not running: "
                                "call docker_run() first")
 
-        docker_cmd = ["docker", "exec", self.img_id,
-                      "timeout", str(self.read_write_timeout), "cat", filepath]
+        docker_cmd = [
+            "docker",
+            "exec",
+            self.container_id,
+            "timeout",
+            str(self.read_write_timeout),
+            "cat",
+            filepath,
+        ]
 
         try:
             res = subprocess.run(
@@ -177,12 +191,19 @@ class DockerWorkspace(WorkspaceBase):
                 out.
         """
 
-        if not self.img_id:
+        if not self.container_id:
             raise RuntimeError("docker container not running: "
                                "call docker_run() first")
 
-        docker_cmd = ["docker", "exec", "-i", self.img_id,
-                      "timeout", str(self.read_write_timeout), "tee", filepath]
+        docker_cmd = [
+            "docker",
+            "exec", "-i",
+            self.container_id,
+            "timeout",
+            str(self.read_write_timeout),
+            "tee",
+            filepath,
+        ]
 
         try:
             res = subprocess.run(
@@ -207,10 +228,12 @@ class DockerWorkspace(WorkspaceBase):
             err = res.stderr.decode("UTF-8", errors="replace")
             raise OSError(f"error writing to file: {err}")
 
-    def execute_command(self,
-                        command: str | list[str],
-                        directory: str,
-                        timeout: int) -> RunResults:
+    def execute_command(
+        self,
+        command: str | list[str],
+        directory: str,
+        timeout: int,
+    ) -> RunResults:
         """Run a command in the container with docker exec.
 
         A string is run through a login shell (bash -lc), so the task's conda
@@ -239,11 +262,11 @@ class DockerWorkspace(WorkspaceBase):
         if timeout <= 0:
             raise ValueError("timeout must be greater than 0")
 
-        if not self.img_id:
+        if not self.container_id:
             raise RuntimeError("docker container not running: "
                                "call docker_run() first")
 
-        docker_cmd = ["docker", "exec", "-w", directory, self.img_id]
+        docker_cmd = ["docker", "exec", "-w", directory, self.container_id]
 
         if isinstance(command, str):
             shell_cmd = ["timeout", str(timeout), "bash", "-lc", command]

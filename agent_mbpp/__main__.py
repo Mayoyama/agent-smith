@@ -1,5 +1,9 @@
-"""Entry point for the MBPP agent."""
+"""Entry point for the MBPP agent.
 
+Loads the task, connects the MBPP tool server to the sandbox, runs the agent
+loop within the MBPP limits and writes solution.json to --output. Exits with
+code 1 on a setup error or SIGTERM, and 130 on Ctrl+C.
+"""
 
 import sys
 import time
