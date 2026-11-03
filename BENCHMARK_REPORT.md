@@ -202,6 +202,34 @@ differently because model output is not deterministic.
   free quota on our key), `ministral-3b-latest` (loops on failed edits, 2/3,
   one invalid patch), `codestral-latest` (hits the input token cap on the
   hardest task).
+- **MBPP**: the agent passed 7/10 (and 18/20, 5/5 earlier). Every failure
+  analysed comes from the dataset's hidden tests or from the model's output,
+  not from the agent code (section 7).
+
+## 7. MBPP check (moulinette `run-agent`)
+
+**Method**: `scripts/eval_mbpp.sh N` draws N random tasks (`dump mbpp`, drawn
+with replacement), runs the agent through `moulinette_eval run-agent 120` and
+validates each solution. Model: `qwen/qwen3.8-27b` on Groq. Single runs, no
+variance estimate, one model only (not the five of section 2).
+
+| Run | Passed | Max agent time |
+|---|---|---|
+| Before merging the conversion feedback | 18/20 | 52 s |
+| After the merge | 5/5 | 58 s |
+| Latest, final branch code | 7/10 | 50 s |
+
+The exam threshold is 4/5. The latest run is below it.
+
+**Analysis of the failures** (correctness only, metrics were valid):
+- 137, 452, 461: the hidden test contradicts or is ambiguous with the task
+  statement (137: ratio zeros / non-zeros; 452: expects `0` where the
+  statement says "return none"; 461: the reference code returns inside the
+  loop, so it only looks at the first character). The agent cannot guess these.
+- 160, 260: no solution. The provider returned `finish_reason: stop` with the
+  reply cut in the middle of the code (stop sequences ruled out), or the model
+  reasoned in prose without any code block. The run ended on
+  `max_input_tokens`. Cause of the provider stop not established.
 
 ## Reproducing
 
