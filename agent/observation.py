@@ -8,7 +8,7 @@ def format_observation(res: Results, timeout: int) -> str:
 
     Keeps the output, the last 3 lines of the error, a note when the run timed
     out or the sandbox restarted, and a hint when the output was truncated.
-    
+
     Args:
         res: Result of the sandbox execution.
         timeout: Execution timeout in seconds, shown if it was hit.
@@ -51,4 +51,19 @@ def no_code_observation() -> str:
     return (
         "No ```python block found in your reply. "
         "Reply with a Thought, then exactly one ```python block."
+    )
+
+
+def cut_off_observation() -> str:
+    """Message sent when the reply's code block was never closed.
+
+    Returns:
+        A reminder that the block was cut off and to write shorter code.
+    """
+
+    return (
+        "Your ```python block was cut off before its closing ``` "
+        "(the reply hit the token limit), so none of it was run and "
+        "none of its variables exist. Send the whole block again, shorter:"
+        " a one-sentence Thought, no comments."
     )

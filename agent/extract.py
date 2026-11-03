@@ -12,6 +12,7 @@ from typing import Any
 Match = tuple[int, int, str]  # (start, end, python_code)
 
 CODE_BLOCK = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
+OPEN_BLOCK = re.compile(r"```(?:python|py)?\s*\n")
 XML_INVOKE = re.compile(r'<invoke name="(\w+)">(.*?)</invoke>', re.DOTALL)
 XML_PARAM = re.compile(
     r'<parameter name="(\w+)">(.*?)</parameter>', re.DOTALL)
@@ -192,3 +193,48 @@ def cut_after_first_block(text: str) -> str:
 
     match = first_match(text)
     return text[: match[1]] if match else text
+
+
+def get_conversion_note(text: str) -> str | None:
+    """Describe how a reply in a non-Python format was converted.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        A note naming the format and giving the Python code that was run,
+        or None if the reply has no match or uses a python code block.
+    """
+
+    match = first_match(text)
+
+    if match is None:
+        return None
+
+    if match == parse_python(text):
+        return None
+
+    format_name = "a non-Python format"
+    for parse in PARSERS:
+        if parse(text) == match:
+            format_name = parse.__name__.removeprefix("parse_") + " format"
+
+    return (f"Note: your reply used the {format_name}. It was run as this "
+            f"Python code:\n{match[2]}")
+
+
+def has_unclosed_block(text: str) -> bool:
+    """Check whether a reply opens a python code block without closing it.
+
+    Args:
+        text: Raw LLM answer.
+
+    Returns:
+        True if an opening fence is found but no complete code block, e.g.
+        when the reply was cut off by the token limit.
+    """
+
+    if CODE_BLOCK.search(text) is not None:
+        return False
+
+    return OPEN_BLOCK.search(text) is not None

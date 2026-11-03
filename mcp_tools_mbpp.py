@@ -9,6 +9,7 @@ from common import OutputCollector, parse_tool_args
 import subprocess
 import asyncio
 import json
+import ast
 import sys
 import os
 
@@ -16,6 +17,48 @@ import os
 MCP_SERVER = MCPServer()
 TIMEOUT_LIMIT = 5
 ERROR_LENGTH_LIMIT = 300
+
+
+def adjust_assert(test: str) -> str:
+    """Rewrite an "assert a == b" test so a failure shows the value of a.
+
+    Args:
+        test: One assertion from test_list.
+
+    Returns:
+        Two lines that store a in a variable and assert it equals b, with
+        "got <repr>" as the failure message, or test unchanged if it is not a
+        single assert with one == comparison and no message.
+    """
+
+    try:
+        parsed = ast.parse(test)
+
+    except SyntaxError:
+        return test
+
+    if len(parsed.body) != 1:
+        return test
+
+    node = parsed.body[0]
+    if not isinstance(node, ast.Assert) or node.msg is not None:
+        return test
+
+    compare = node.test
+    if not isinstance(compare, ast.Compare):
+        return test
+
+    if len(compare.ops) != 1 or not isinstance(compare.ops[0], ast.Eq):
+        return test
+
+    left = ast.unparse(compare.left)
+    right = ast.unparse(compare.comparators[0])
+
+    return (
+        f"__run_tests_got = {left}\n"
+        f"assert __run_tests_got == {right}, "
+        "'got ' + repr(__run_tests_got)"
+    )
 
 
 @MCP_SERVER.tool()
@@ -33,8 +76,9 @@ def run_tests(code: str, test_list: list[str]) -> str:
 
     Returns:
         A JSON string with "success" (true only if every assertion passed) and
-        "output" (one PASS, FAIL or TIMEOUT line per assertion; long error
-        messages are truncated with a marker).
+        "output" (one PASS, FAIL or TIMEOUT line per assertion; a failed ==
+        assertion shows the value it got, and long error messages are
+        truncated with a marker).
     """
 
     existing_tests = [line for line in test_list if line.strip()]
@@ -47,7 +91,7 @@ def run_tests(code: str, test_list: list[str]) -> str:
 
     for test in existing_tests:
         result_text = ""
-        assert_text = f"{code}\n{test}"
+        assert_text = f"{code}\n{adjust_assert(test)}"
 
         try:
             res = subprocess.run(
