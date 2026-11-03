@@ -4,8 +4,10 @@ import time
 from typing import Callable
 from dataclasses import dataclass
 
-from agent.extract import cut_after_first_block, extract_code
-from agent.observation import format_observation, no_code_observation
+from agent.extract import (cut_after_first_block, extract_code,
+                           get_conversion_note, has_unclosed_block)
+from agent.observation import (format_observation, no_code_observation,
+                               cut_off_observation)
 from common import StepMetrics
 from llms.model_loader import validate_llm_providers
 from llms.models import RequestData
@@ -146,9 +148,13 @@ def run_agent(
         messages.append({"role": "assistant", "content": reply})
 
         code = extract_code(reply)
+        note = get_conversion_note(reply)
         final: str | None = None
         if code is None:
-            observation = no_code_observation()
+            if has_unclosed_block(reply):
+                observation = cut_off_observation()
+            else:
+                observation = no_code_observation()
         else:
             res = sandbox.run_exec(code)
             if res.final_ans is not None:
@@ -156,6 +162,9 @@ def run_agent(
                 observation = res.final_ans
             else:
                 observation = format_observation(res, exec_timeout)
+
+                if note is not None:
+                    observation = note + '\n' + observation
 
         steps.append(StepMetrics(
             step=step,
