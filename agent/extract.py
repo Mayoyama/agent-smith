@@ -11,8 +11,8 @@ from typing import Any
 
 Match = tuple[int, int, str]  # (start, end, python_code)
 
-CODE_BLOCK = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
-OPEN_BLOCK = re.compile(r"```(?:python|py)?\s*\n")
+CODE_BLOCK = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL | re.I)
+OPEN_BLOCK = re.compile(r"```(python|py)?\s*\n", re.I)
 XML_INVOKE = re.compile(r'<invoke name="(\w+)">(.*?)</invoke>', re.DOTALL)
 XML_PARAM = re.compile(
     r'<parameter name="(\w+)">(.*?)</parameter>', re.DOTALL)
@@ -196,14 +196,16 @@ def cut_after_first_block(text: str) -> str:
 
 
 def get_conversion_note(text: str) -> str | None:
-    """Describe how a reply in a non-Python format was converted.
+    """Describe how a reply was converted or tolerated.
 
     Args:
         text: Raw LLM answer.
 
     Returns:
-        A note naming the format and giving the Python code that was run,
-        or None if the reply has no match or uses a python code block.
+        For a non-Python format, a note naming the format and giving the
+        Python code that was run. For a python block whose tag is not
+        lowercase, a note asking for the lowercase tag. None if the reply has
+        no match or is a correct python block.
     """
 
     match = first_match(text)
@@ -212,15 +214,22 @@ def get_conversion_note(text: str) -> str | None:
         return None
 
     if match == parse_python(text):
-        return None
+        opening = OPEN_BLOCK.search(text)
+        tag: str | None = opening.group(1) if opening else None
+        if tag is None or tag in ("python", "py"):
+            return None
+        return (f"Note: your code block was tagged '{tag}' and was run "
+                "anyway. Write the tag as 'python', in lowercase.")
 
     format_name = "a non-Python format"
     for parse in PARSERS:
         if parse(text) == match:
             format_name = parse.__name__.removeprefix("parse_") + " format"
 
-    return (f"Note: your reply used the {format_name}. It was run as this "
-            f"Python code:\n{match[2]}")
+    return (
+        f"Note: your reply used the {format_name}. It was run as this "
+        f"Python code:\n{match[2]}"
+    )
 
 
 def has_unclosed_block(text: str) -> bool:
