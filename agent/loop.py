@@ -32,13 +32,15 @@ class RunResult:
 
 
 def make_generate(
-    model_name: str, provider_url: str
+    model_name: str, provider_url: str, deadline: float | None = None
 ) -> Callable[[Messages, int], tuple[RequestData, int]]:
     """Return generate(messages, max_tokens) bound to one model/provider.
 
     Args:
         model_name: Name of the model, as declared in models_config.json.
         provider_url: URL of the provider serving the model.
+        deadline: A time.monotonic() timestamp after which no request is
+            sent, or None for no deadline.
 
     Returns:
         A function returning the LLM response data and the retry count.
@@ -65,12 +67,13 @@ def make_generate(
             The response data and the number of retries needed.
 
         Raises:
-            RuntimeError: If every API key fails or the provider returns an
-                unexpected error.
+            RuntimeError: If the deadline passed, if every API key fails or
+                if the provider returns an unexpected error.
         """
 
         return handle_request(
-            model_data, messages, 60, max_tokens=min(max_tokens, 400))
+            model_data, messages, 60, max_tokens=min(max_tokens, 400),
+            deadline=deadline)
     return generate
 
 

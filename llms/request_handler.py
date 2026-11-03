@@ -80,11 +80,38 @@ def get_retry_after_value(reply: requests.Response) -> float | None:
     return None
 
 
+def time_left(deadline: float | None) -> float:
+    """Get the seconds left before a deadline.
+
+    Args:
+        deadline: A time.monotonic() timestamp, or None for no deadline.
+
+    Returns:
+        The seconds left (negative once passed), or infinity without deadline.
+    """
+
+    if deadline is None:
+        return float("inf")
+
+    return deadline - time.monotonic()
+
+
+def sleep_until(seconds: float, deadline: float | None) -> None:
+    """Sleep, but never past the deadline.
+
+    Args:
+        seconds: Wanted sleep time in seconds.
+        deadline: A time.monotonic() timestamp, or None for no deadline.
+    """
+
+    time.sleep(max(0.0, min(seconds, time_left(deadline))))
+
+
 def send_request(
     model_data: LLMModelData,
     api_key: str,
     msgs: list[dict[str, str]],
-    timeout_limit: int,
+    timeout_limit: float,
     stop: tuple[str, ...] = ("<end_code>", "Observation:"),
     max_tokens: int | None = None,
 ) -> RequestData:
@@ -181,9 +208,10 @@ def send_request(
 def handle_request(
     model_data: LLMModelData,
     msgs: list[dict[str, str]],
-    timeout_limit: int,
+    timeout_limit: float,
     stop: tuple[str, ...] = ("<end_code>", "Observation:"),
     max_tokens: int | None = None,
+    deadline: float | None = None,
 ) -> tuple[RequestData, int]:
     """Send a request, retrying and switching API keys as needed.
 
@@ -192,6 +220,7 @@ def handle_request(
     and retries the same key, up to MAX_RETRIES times before moving on. A 5xx,
     timeout or connection error is retried on the same key up to 3 times, 2 s
     apart, before moving on. Every attempt after the first counts as a retry.
+    Timeouts and waits never go past the deadline.
 
     Args:
         model_data: Base URL, model name and API keys to use.
@@ -199,13 +228,15 @@ def handle_request(
         timeout_limit: Seconds to wait for each response.
         stop: Sequences at which the model stops generating.
         max_tokens: Maximum tokens the model may generate or None for no limit.
+        deadline: A time.monotonic() timestamp after which no request is
+            sent, or None for no deadline.
 
     Returns:
         The successful result and the total number of retries.
 
     Raises:
-        RuntimeError: If the API answers with any other error code, or if every
-            key failed.
+        RuntimeError: If the deadline passed ("max_time"), if the API answers
+            with any other error code, or if every key failed.
     """
 
     total_retries: int = 0
@@ -214,9 +245,15 @@ def handle_request(
         retry_count: int = 0
 
         while True:
+            left: float = time_left(deadline)
+
+            if left <= 0:
+                raise RuntimeError("max_time")
+
             try:
                 data = send_request(
-                    model_data, key, msgs, timeout_limit, stop, max_tokens
+                    model_data, key, msgs, min(timeout_limit, left),
+                    stop, max_tokens
                 )
 
                 if data.reply_code == 200:
@@ -239,7 +276,7 @@ def handle_request(
                     if data.retry_after is not None:
                         wait = data.retry_after
 
-                    time.sleep(min(wait, MAX_WAIT))
+                    sleep_until(min(wait, MAX_WAIT), deadline)
 
                     continue
 
@@ -248,7 +285,7 @@ def handle_request(
                     total_retries += 1
 
                     if retry_count <= 3:
-                        time.sleep(2)
+                        sleep_until(2, deadline)
 
                         continue
 
@@ -265,7 +302,7 @@ def handle_request(
                 total_retries += 1
 
                 if retry_count <= 3:
-                    time.sleep(2)
+                    sleep_until(2, deadline)
 
                     continue
 
