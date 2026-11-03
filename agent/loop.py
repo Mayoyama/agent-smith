@@ -95,7 +95,8 @@ def run_agent(
     Each reply is cut after its first code block or tool call, its code is
     run in the sandbox and the observation is sent back as the next user
     message. The loop stops on final_answer, on a request error or when a
-    limit is reached.
+    limit is reached. Before each step, the next input size is estimated
+    from the last input, the last reply and the last observation.
 
     Args:
         task: Task given to the agent as the first user message.
@@ -125,7 +126,7 @@ def run_agent(
     error: str | None = "max_iterations"
     total_in = 0
     total_out = 0
-    last_in = 0
+    next_in = 0
     start = time.monotonic()
     for step in range(1, max_iterations + 1):
         if time.monotonic() - start > max_time_sec:
@@ -134,7 +135,7 @@ def run_agent(
         if total_out >= max_output_tokens:
             error = "max_output_tokens"
             break
-        if total_in + last_in > max_input_tokens:
+        if total_in + next_in > max_input_tokens:
             error = "max_input_tokens"
             break
         try:
@@ -145,7 +146,6 @@ def run_agent(
         reply = cut_after_first_block(data.text)
         total_in += data.input_tokens
         total_out += data.output_tokens
-        last_in = data.input_tokens
         messages.append({"role": "assistant", "content": reply})
 
         code = extract_code(reply)
@@ -178,4 +178,6 @@ def run_agent(
         messages.append(
             {"role": "user", "content": "Observation:\n" + observation}
         )
+        next_in = (data.input_tokens + data.output_tokens
+                   + len(observation) // 3 + 50)
     return RunResult(None, steps, error)
