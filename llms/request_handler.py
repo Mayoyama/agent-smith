@@ -132,10 +132,19 @@ def send_request(
     reply_code = reply.status_code
 
     if reply.status_code == 200:
-        json_data = reply.json()
-        reply_text = json_data["choices"][0]["message"].get("content")
-        input_tokens = json_data["usage"]["prompt_tokens"]
-        output_tokens = json_data["usage"]["completion_tokens"]
+        try:
+            json_data = reply.json()
+            reply_text = json_data["choices"][0]["message"].get("content")
+            input_tokens = json_data["usage"]["prompt_tokens"]
+            output_tokens = json_data["usage"]["completion_tokens"]
+        except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+            return RequestData(
+                text="",
+                input_tokens=0,
+                output_tokens=0,
+                response_time_in_ms=request_time_in_ms,
+                reply_code=502,
+            )
 
         if isinstance(reply_text, list):
             reply_text = "".join(
@@ -251,7 +260,7 @@ def handle_request(
                         f"handle request error: {data.reply_code}"
                     )
 
-            except (requests.Timeout, requests.ConnectionError):
+            except requests.RequestException:
                 retry_count += 1
                 total_retries += 1
 
