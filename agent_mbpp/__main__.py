@@ -29,6 +29,27 @@ MAX_TIME_SECONDS = 120
 DEADLINE_SECONDS = 100
 
 
+def fetch_code(sandbox: Sandbox) -> str:
+    """Get the `code` variable of the sandbox as a fallback answer.
+
+    Args:
+        sandbox: Sandbox of the finished run.
+
+    Returns:
+        The source in `code` if it compiles and defines a function, else "".
+    """
+
+    res = sandbox.run_exec("print(code)")
+    text: str = res.output.strip()
+    if res.error or res.truncated or "def " not in text:
+        return ""
+    try:
+        compile(text, "<fallback>", "exec")
+    except (SyntaxError, ValueError):
+        return ""
+    return text
+
+
 if __name__ == "__main__":
     deadline: float = time.monotonic() + DEADLINE_SECONDS
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
@@ -73,12 +94,13 @@ if __name__ == "__main__":
             )
         except Exception as e:
             result = RunResult(None, [], f"crash: {e}")
+        answer: str = result.answer or fetch_code(sandbox)
         steps = result.steps
         solution = SolutionOutput(
             task_id=str(task.task_id),
             benchmark="mbpp",
             success=result.answer is not None,
-            solution=result.answer or "",
+            solution=answer,
             iterations=len(steps),
             total_requests=sum(1 + s.retries for s in steps),
             total_input_tokens=sum(s.input_tokens for s in steps),
