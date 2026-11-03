@@ -91,8 +91,9 @@ def send_request(
     """Send one chat completion request and return the result.
 
     Posts the messages to <base_url>/chat/completions with the given key and
-    times the request. A failed request is returned, not raised: the result
-    then has an empty text, zero tokens, the HTTP status code and the wait the
+    times the request. Reply content sent as a list of parts is joined from
+    its text parts. A failed request is returned, not raised: the result then
+    has an empty text, zero tokens, the HTTP status code and the wait the
     provider asks for, if any.
 
     Args:

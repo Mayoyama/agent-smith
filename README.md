@@ -33,7 +33,7 @@ The MBPP tool server runs over stdio by default. Start it with `python mcp_tools
 
 The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. With `TESTBED_PATH` set, it works on that local folder. Otherwise it starts the Docker container of the task JSON at `SWE_TASK_FILE` and works on `/testbed` inside it; Docker must be running. `run_tests` reads the eval script from `SWE_TASK_FILE` in both modes.
 
-Run an agent with `uv run python -m agent_mbpp --task-file <task.json> --output <solution.json> --model-name <model> --provider-url <url>` (`agent_swebench` takes the same options). The provider is found in `models_config.json` by matching `--provider-url`, and its API keys are read from `.env` as `<key_prefix>_1`, `<key_prefix>_2`, and so on. The agent prints nothing on success: it writes a `SolutionOutput` JSON to `--output`. For SWE-bench, Docker must be running, and pulling the task's image beforehand (`docker pull <docker_image>`) avoids a slow first run.
+Run an agent with `uv run python -m agent_mbpp --task-file <task.json> --output <solution.json> --model-name <model> --provider-url <url>` (`agent_swebench` takes the same options). The provider is found in `models_config.json` by matching `--provider-url`, and its API keys are read from the environment (a `.env` file is loaded first) as `<key_prefix>` (e.g. `MISTRAL_API_KEY`), then `<key_prefix>_1`, `<key_prefix>_2`, and so on. The agent prints nothing on success: it writes a `SolutionOutput` JSON to `--output`. For SWE-bench, Docker must be running, and pulling the task's image beforehand (`docker pull <docker_image>`) avoids a slow first run.
  
 The moulinette (`moulinette_eval`) needs Python 3.12 while the agents run on Python 3.10, so its steps are run one by one with `uv run --python 3.12` (`quickstart.sh` calls a plain `uv run` and fails on Python 3.10). For example, for MBPP (replace `mbpp` with `swebench` for SWE-bench, and add `--task-id <id>` to the dump to pick a task):
  
@@ -63,12 +63,12 @@ PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mb
 The loop is in `agent/loop.py` (`run_agent`). It starts from a system prompt and the task as the first user message, then repeats up to `max_iterations` times:
 
 1. The limits are checked before each request: wall-clock time, cumulative output tokens, and cumulative input tokens (the next request is assumed to be as large as the last one). If one is exceeded, the loop stops and `error` names it (`max_time`, `max_output_tokens`, `max_input_tokens`, or `max_iterations` when the steps run out).
-2. The LLM is called. Its reply is cut after the first fenced code block, which removes any `Observation:` the model wrote itself, and the first `python` block is extracted.
+2. The LLM is called. Its reply is cut after the first code block or tool call, which removes any `Observation:` the model wrote itself. The code comes from a fenced `python` block or, for models that answer in another format, from an XML `<invoke>` call, a Hermes `<tool_call>` or a ReAct `Action` / `Action Input` pair, which `agent/extract.py` converts to an equivalent Python call (`result = tool(...)` followed by `print(result)`). The earliest match in the reply is used.
 3. The code runs in the sandbox. Its output becomes the next user message, `Observation: ...`. A reply without a code block gets a reminder asking for a Thought and exactly one block instead.
 4. If the code calls `final_answer()`, the loop ends and the answer is returned.
 Each step is recorded as a `StepMetrics` (tokens, request time, raw LLM output, sandbox input and output, retries, API URL and model), and the agent entry points build the `SolutionOutput` from them. Observations (`agent/observation.py`) contain the printed output, the last three lines of an error, and a note when the run timed out, the sandbox restarted (variables lost) or the output was truncated.
 
-The LLM layer is in `llms/`. `make_generate` binds the loop to one model and one provider: the provider is chosen from `models_config.json` by its `base_url`, and its keys are read from `.env` (`<key_prefix>_1`, `<key_prefix>_2`, ...). Requests go to `<base_url>/chat/completions` with a 60-second timeout, the stop sequence `<end_code>`, and a cap of 400 output tokens per generation. `handle_request` tries the keys in order: a 401 or 429 moves to the next key, a 5xx, timeout or connection error is retried up to 3 times on the same key (2 seconds apart) before moving on, and any other error code stops the run. When every key has failed, the run ends with the error `all keys failed`. There is no fallback between providers: a run uses one.
+The LLM layer is in `llms/`. `make_generate` binds the loop to one model and one provider: the provider is chosen from `models_config.json` by its `base_url`, and its keys are read from the environment (`<key_prefix>`, then `<key_prefix>_1`, `<key_prefix>_2`, ...). Requests go to `<base_url>/chat/completions` with a 60-second timeout, the stop sequences `<end_code>` and `Observation:`, and a cap of 400 output tokens per generation. A reply whose content is a list of parts (as reasoning models send it) is joined from its text parts. `handle_request` tries the keys in order: a 401 moves to the next key; a 429 waits for the time the provider asks for (the `retry-after` header, or Gemini's `retryDelay`; 60 seconds when neither is given, and never more than 60) and tries again, up to 3 times, before moving to the next key; a 5xx, timeout or connection error is retried up to 3 times on the same key (2 seconds apart) before moving on, and any other error code stops the run. When every key has failed, the run ends with the error `all keys failed`. There is no fallback between providers: a run uses one.
 
 ### MBPP Agent
 
@@ -81,6 +81,7 @@ The LLM layer is in `llms/`. `make_generate` binds the loop to one model and one
 - **Connection:** `mcp_setup.py` sets `SWE_TASK_FILE` to the absolute path of the task JSON, removes `TESTBED_PATH` from the environment (otherwise the server would work on a local folder instead of Docker), and starts `mcp_tools_swebench.py` over stdio. The server starts the task's container and removes it when it exits. The agent never manages Docker itself.
 - **Prompt:** `prompt.py` builds the first message from the repository, the issue and the hints (if any). The system prompt asks the model to explore with the search tools, read small line ranges, make the smallest `edit_file` change, never edit test files, and read the test results in the `run_tests` output rather than its exit code (the eval script always exits with 0). Once the tests pass, the model submits `final_answer(get_patch())`.
 - **Output:** `benchmark="swebench"`, `task_id` is the instance id, and `solution` is the git patch.
+- **Fallback:** the loop gets the time limit minus `TIME_MARGIN_SECONDS` (360 seconds), kept in reserve for the end of the run. If the model's answer is not a diff (it never called `final_answer`, or passed plain text to it), the agent calls `get_patch` itself and submits the repository diff, so edits made before the loop stopped are not lost.
 - **Cleanup:** the sandbox and the MCP client are closed in a `finally`, so the container is removed after a normal run or an error. A SIGTERM handler turns the signal into `sys.exit(1)`, so the same cleanup runs when the moulinette kills a timed-out agent. A container that outlives a SIGKILL stops by itself after 20 minutes.
 
 [↑ Back to top](#top)
@@ -137,6 +138,22 @@ The subject leaves several details of the tools open (V.4, V.5). The choices mad
 
 ## Benchmark Results and Analysis
 
+The full report is in [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md), and the backing `solution.json` files are in `bench/`. Five models from two providers were run on the same three SWE-bench Verified tasks (`sympy__sympy-13480`, `pydata__xarray-4629`, `sympy__sympy-14711`), with the same prompt, tools and limits, and every run was validated with the moulinette.
+
+| Provider | Model | Passed | Iterations on sympy-14711 | Avg response time |
+|---|---|---|---|---|
+| Mistral | `codestral-latest` | 2/3 | 27 (fail) | 866 ms |
+| Mistral | `ministral-14b-latest` | 3/3 | 30 | 1,349 ms |
+| Mistral | `ministral-8b-latest` | 3/3 | 20 | 1,161 ms |
+| Mistral | `ministral-3b-latest` | 2/3 | 30 (fail) | 857 ms |
+| Google | `gemini-3.1-flash-lite` | 3/3 | 21 | 2,685 ms |
+
+- 13 of the 15 runs pass. Every model solves sympy-13480 and xarray-4629 with the same fix in 4 to 9 iterations (except `ministral-3b-latest` on sympy-13480), so only sympy-14711 separates them.
+- **Selected model: `ministral-8b-latest`.** It passes all three tasks with the fewest iterations and tokens on sympy-14711 (20 iterations, 110,927 input tokens), submits as soon as its tests pass, and never needs the fallback.
+- **Reliability:** 212 requests, no retries and no failed request during the runs. Gemini's free tier allows about 15 requests per minute, so its runs were launched one at a time.
+- **Ablation:** with the `get_patch` fallback removed, the 2 runs that ended without `final_answer` fail, so 11 of 15 runs pass instead of 13.
+- **Disregarded:** `codestral-latest` (hits the input token cap on sympy-14711), `ministral-3b-latest` (repeats failing edits, one invalid patch), reasoning models such as `mistral-large-4` (their reasoning uses up the 400-token reply cap), and `mistral-small-latest` / `mistral-medium-latest` (no free quota on our key).
+
 [↑ Back to top](#top)
 
 ## Resources
@@ -152,6 +169,21 @@ The subject leaves several details of the tools open (V.4, V.5). The choices mad
 - [Agentic Loops AI - Agentic AI Engineering](https://github.com/agenticloops-ai/agentic-ai-engineering)
 - [Hugging Face - Agents Course](https://huggingface.co/learn/agents-course/en/unit0/introduction)
 
+As part of the research process, especially where the subject left a behaviour unspecified (for example empty test lists, exposing MCP resources and prompts, or truncating long output), I (speterse) compared how several other students had interpreted the requirement, weighed the trade-offs of each approach, and designed and wrote my own implementation from that comparison. The following github repo's were viewed:
+- kylianmthr/AgentSmith
+- sousampere/42_agent_smith
+- Naitchi/Agent-Smith
+- Gabinap/agent_smith
+- tlaranje/Agent-Smith
+
 ### AI Usage
+
+- Explaining new concepts and libraries: mcp 2.3.0 (MCPServer and MCPClient, stdio and HTTP, resources and prompts), asyncio, multiprocessing pipes, the Docker CLI, and how SIGTERM and SIGKILL are delivered.
+- Comparing free LLM providers and their limits (Groq, Gemini, OpenRouter, Mistral).
+- Docstrings (Google style, 79 characters), README sections, and keeping them accurate after code changes.
+- Parts of this README
+- Debugging and testing.
+- Resolving an issue with the moulinette code preventing it from using Python 3.10 correctly.
+
 
 [↑ Back to top](#top)

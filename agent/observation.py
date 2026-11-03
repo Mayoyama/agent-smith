@@ -6,12 +6,16 @@ from sandbox.results import Results
 def format_observation(res: Results, timeout: int) -> str:
     """Turn a sandbox Results into a message for the LLM.
 
+    Keeps the output, the last 3 lines of the error, a note when the run timed
+    out or the sandbox restarted, and a hint when the output was truncated.
+    
     Args:
         res: Result of the sandbox execution.
         timeout: Execution timeout in seconds, shown if it was hit.
 
     Returns:
-        The observation text or to use print() if there is nothing to report.
+        The observation text, or a reminder to use print() if there is nothing
+        to report.
     """
 
     parts: list[str] = []

@@ -1,3 +1,5 @@
+"""Shared models, messages and helpers for the agents, sandbox and servers."""
+
 from .models_public import (SandboxConfig, SolutionOutput,
                             StepMetrics, MBPPTaskInput,
                             SWEBenchTaskInput)
@@ -7,6 +9,7 @@ from .messages import (ToolCall, ToolResult,
 from .json_loader import json_loader
 from .output_collector import OutputCollector
 from .arg_parsers import setup_agent_parser, parse_tool_args
+
 
 __all__ = [
     "SandboxConfig",

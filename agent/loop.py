@@ -32,7 +32,7 @@ class RunResult:
 
 
 def make_generate(
-        model_name: str, provider_url: str
+    model_name: str, provider_url: str
 ) -> Callable[[Messages, int], tuple[RequestData, int]]:
     """Return generate(messages, max_tokens) bound to one model/provider.
 
@@ -42,6 +42,10 @@ def make_generate(
 
     Returns:
         A function returning the LLM response data and the retry count.
+
+    Raises:
+        ValueError: If the provider URL is unknown or no API key is set.
+        RuntimeError: If models_config.json can't be loaded.
     """
 
     model_data = validate_llm_providers(
@@ -49,7 +53,7 @@ def make_generate(
     )
 
     def generate(
-            messages: Messages, max_tokens: int
+        messages: Messages, max_tokens: int
     ) -> tuple[RequestData, int]:
         """Send messages to the LLM, capping the output at 400 tokens.
 
@@ -59,6 +63,10 @@ def make_generate(
 
         Returns:
             The response data and the number of retries needed.
+
+        Raises:
+            RuntimeError: If every API key fails or the provider returns an
+                unexpected error.
         """
 
         return handle_request(
@@ -79,7 +87,12 @@ def run_agent(
     api_url: str,
     model_name: str,
 ) -> RunResult:
-    """Run the loop. Return the answer, the steps and the error if any.
+    """Run the Thought -> Code -> Observation loop until an answer or a limit.
+
+    Each reply is cut after its first code block or tool call, its code is
+    run in the sandbox and the observation is sent back as the next user
+    message. The loop stops on final_answer, on a request error or when a
+    limit is reached.
 
     Args:
         task: Task given to the agent as the first user message.
@@ -96,7 +109,9 @@ def run_agent(
         model_name: Model name recorded in each step's metrics.
 
     Returns:
-        A RunResult with the answer, the steps and the error if any.
+        A RunResult with the answer and the steps. Without an answer, error is
+        the reason the loop stopped: max_iterations, max_time,
+        max_output_tokens, max_input_tokens or the request error.
     """
 
     messages: Messages = [
