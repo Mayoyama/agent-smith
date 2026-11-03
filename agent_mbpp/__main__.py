@@ -12,7 +12,7 @@ import signal
 from argparse import ArgumentParser
 from pathlib import Path
 
-from agent.loop import make_generate, run_agent
+from agent.loop import RunResult, make_generate, run_agent
 from agent_mbpp.mcp_setup import connect_mbpp_tools
 from agent_mbpp.prompt import build_prompt, build_system_prompt
 from common.models_public import MBPPTaskInput
@@ -55,19 +55,22 @@ if __name__ == "__main__":
     try:
         system_prompt: str = build_system_prompt(sandbox.get_manual(client))
         start: float = time.monotonic()
-        result = run_agent(
-            task=build_prompt(task),
-            system_prompt=system_prompt,
-            generate=generate,
-            sandbox=sandbox,
-            max_iterations=MAX_ITERATIONS,
-            max_input_tokens=MAX_INPUT_TOKENS,
-            max_output_tokens=MAX_OUTPUT_TOKENS,
-            max_time_sec=MAX_TIME_SECONDS,
-            exec_timeout=sandbox.config.max_execution_time_seconds,
-            api_url=args.provider_url,
-            model_name=args.model_name
-        )
+        try:
+            result: RunResult = run_agent(
+                task=build_prompt(task),
+                system_prompt=system_prompt,
+                generate=generate,
+                sandbox=sandbox,
+                max_iterations=MAX_ITERATIONS,
+                max_input_tokens=MAX_INPUT_TOKENS,
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+                max_time_sec=MAX_TIME_SECONDS,
+                exec_timeout=sandbox.config.max_execution_time_seconds,
+                api_url=args.provider_url,
+                model_name=args.model_name
+            )
+        except Exception as e:
+            result = RunResult(None, [], f"crash: {e}")
         steps = result.steps
         solution = SolutionOutput(
             task_id=str(task.task_id),

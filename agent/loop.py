@@ -136,7 +136,7 @@ def run_agent(
             break
         try:
             data, retries = generate(messages, max_output_tokens - total_out)
-        except RuntimeError as e:
+        except Exception as e:
             error = str(e)
             break
         reply = cut_after_first_block(data.text)
