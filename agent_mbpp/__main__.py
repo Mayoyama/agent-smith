@@ -26,9 +26,11 @@ MAX_ITERATIONS = 10
 MAX_INPUT_TOKENS = 6000
 MAX_OUTPUT_TOKENS = 1500
 MAX_TIME_SECONDS = 120
+DEADLINE_SECONDS = 100
 
 
 if __name__ == "__main__":
+    deadline: float = time.monotonic() + DEADLINE_SECONDS
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
     signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
 
@@ -41,7 +43,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        generate = make_generate(args.model_name, args.provider_url)
+        generate = make_generate(args.model_name, args.provider_url, deadline)
     except (ValueError, RuntimeError) as e:
         print(f"LLM setup error: {e}", file=sys.stderr)
         sys.exit(1)
