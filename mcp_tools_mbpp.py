@@ -4,7 +4,7 @@ Runs over stdio by default, or over streamable HTTP with --http
 (http://127.0.0.1:PORT/mcp, port 8000 unless --port is given).
 """
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.fastmcp import FastMCP
 from common import OutputCollector, parse_tool_args
 import subprocess
 import asyncio
@@ -14,7 +14,7 @@ import sys
 import os
 
 
-MCP_SERVER = MCPServer()
+MCP_SERVER = FastMCP()
 TIMEOUT_LIMIT = 5
 ERROR_LENGTH_LIMIT = 300
 
@@ -147,7 +147,8 @@ if __name__ == "__main__":
 
     try:
         if args.http:
-            MCP_SERVER.run(transport="streamable-http", port=args.port)
+            MCP_SERVER.settings.port = args.port
+            MCP_SERVER.run(transport="streamable-http")
 
         else:
             MCP_SERVER.run()

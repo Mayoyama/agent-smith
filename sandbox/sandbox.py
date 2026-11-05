@@ -323,7 +323,7 @@ class Sandbox:
                 continue
 
             self.tool_names.append(tool.name)
-            properties = tool.input_schema.get("properties", {})
+            properties = tool.inputSchema.get("properties", {})
             self.tool_param_names[tool.name] = list(properties.keys())
 
         self.restart_child_process()
@@ -355,7 +355,7 @@ class Sandbox:
 
                     continue
 
-                properties = tool.input_schema.get('properties', {})
+                properties = tool.inputSchema.get('properties', {})
                 param_strings: list[str] = []
 
                 for param_name, param_info in properties.items():

@@ -178,7 +178,7 @@ As part of the research process, especially where the subject left a behaviour u
 
 ### AI Usage
 
-- Explaining new concepts and libraries: mcp 2.3.0 (MCPServer and MCPClient, stdio and HTTP, resources and prompts), asyncio, multiprocessing pipes, the Docker CLI, and how SIGTERM and SIGKILL are delivered.
+- Explaining new concepts and libraries: mcp 1.26.0 (FastMCP and MCPClient, stdio and HTTP, resources and prompts), asyncio, multiprocessing pipes, the Docker CLI, and how SIGTERM and SIGKILL are delivered.
 - Comparing free LLM providers and their limits (Groq, Gemini, OpenRouter, Mistral).
 - Docstrings (Google style, 79 characters), README sections, and keeping them accurate after code changes.
 - Parts of this README

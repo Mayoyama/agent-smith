@@ -8,8 +8,8 @@ streamable HTTP with --http (http://127.0.0.1:PORT/mcp, port 8000 unless --port
 is given).
 """
 
-from mcp.server.mcpserver import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from common.models_public import SWEBenchTaskInput
 from common import parse_tool_args, OutputCollector, json_loader
 from typing import Any
@@ -28,7 +28,7 @@ DOCKER_BOOT_LIMIT: int = 300
 STDERR_LENGTH_LIMIT: int = 2000
 OUTPUT_LIMIT: int = 10000
 TESTBED_PATH: str = os.environ.get("TESTBED_PATH", "")
-MCP_SERVER: MCPServer = MCPServer()
+MCP_SERVER: FastMCP = FastMCP()
 WORKSPACE: swebench_tools.WorkspaceBase
 
 
@@ -473,7 +473,8 @@ if __name__ == "__main__":
 
     try:
         if args.http:
-            MCP_SERVER.run(transport="streamable-http", port=args.port)
+            MCP_SERVER.settings.port = args.port
+            MCP_SERVER.run(transport="streamable-http")
 
         else:
             MCP_SERVER.run()

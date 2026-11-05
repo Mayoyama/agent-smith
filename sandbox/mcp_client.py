@@ -148,7 +148,7 @@ class MCPClient:
         """
 
         try:
-            async with streamable_http_client(url) as (read, write):
+            async with streamable_http_client(url) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     init_res = await session.initialize()
 
@@ -224,8 +224,8 @@ class MCPClient:
                 resources += (f"Text content: {resource.text}\n")
 
             else:
-                mtype = (resource.mime_type
-                         if resource.mime_type is not None
+                mtype = (resource.mimeType
+                         if resource.mimeType is not None
                          else "unknown")
 
                 resources += (f"[Binary content (type={mtype})]\n")
@@ -306,7 +306,7 @@ class MCPClient:
 
         text = "\n".join(parts)
 
-        if result.is_error:
+        if result.isError:
             raise RuntimeError(f"Tool error: {text}")
 
         return text
