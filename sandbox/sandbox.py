@@ -95,6 +95,8 @@ class Sandbox:
 
         Args:
             code: Python source to execute.
+            timeout: Seconds the run may take, capped at the config's
+                max_execution_time_seconds, or None for the config value.
 
         Returns:
             Output, error, final answer, and timeout/truncation/reset flags.
@@ -173,6 +175,10 @@ class Sandbox:
         ToolResult. Only time spent waiting on the child counts toward the
         timeout. On a timeout, crash or unexpected message the child is
         restarted. Output and error are cut to buffer_limit.
+
+        Args:
+            timeout: Seconds the run may take, capped at the config's
+                max_execution_time_seconds, or None for the config value.
 
         Returns:
             The run's result, including any partial output.

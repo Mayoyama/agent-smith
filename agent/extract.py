@@ -37,7 +37,9 @@ def to_python_call(name: str, args: dict[str, Any]) -> str:
 
 
 def parse_python(text: str) -> Match | None:
-    """Find the first fenced Python code block.
+    """Find the first fenced code block tagged python, py or nothing.
+
+    The tag is matched in any case, e.g. ```Python.
 
     Args:
         text: Raw LLM answer.

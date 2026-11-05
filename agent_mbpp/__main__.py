@@ -1,8 +1,11 @@
 """Entry point for the MBPP agent.
 
 Loads the task, connects the MBPP tool server to the sandbox, runs the agent
-loop within the MBPP limits and writes solution.json to --output. Exits with
-code 1 on a setup error or SIGTERM, and 130 on Ctrl+C.
+loop within the MBPP limits and writes solution.json to --output. No request
+is sent after DEADLINE_SECONDS, and code runs end SHUTDOWN_MARGIN_SECONDS
+before MAX_TIME_SECONDS, both counted from start-up. Without an answer, the
+sandbox's `code` variable is submitted if it holds a compilable function.
+Exits with code 1 on a setup error or SIGTERM, and 130 on Ctrl+C.
 """
 
 import sys

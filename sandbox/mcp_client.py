@@ -202,12 +202,13 @@ class MCPClient:
             uri: URI of the resource.
 
         Returns:
-            The text contents, one per line; binary contents are replaced by a
-            "[Binary content (type=...)]" placeholder.
+            One line per content item: text items start with "Text content:",
+            binary items become a "[Binary content (type=...)]" placeholder.
 
         Raises:
             RuntimeError: If the session is not connected or the server does
                 not support resources.
+            pydantic.ValidationError: If uri is not a valid URL.
         """
 
         if self.session is None:

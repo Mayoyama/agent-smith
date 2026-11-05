@@ -93,7 +93,8 @@ class RequestData(BaseModel):
             the request failed.
         response_time_in_ms: Wall-clock time of the HTTP request in
             milliseconds.
-        reply_code: HTTP status code of the response.
+        reply_code: HTTP status code of the response, or 502 if a 200 reply
+            could not be parsed.
         retry_after: Seconds the provider asked to wait before retrying, or
             None if it gave no time or the request succeeded.
     """

@@ -12,10 +12,12 @@ from .config import load_config_or_defaults
 def repl() -> None:
     """Run an interactive sandbox session, optionally with MCP tools.
 
-    Connects to an MCP server if --mcp-stdio or --mcp-server is given, prints
-    the manual, then executes each input line until exit, EOF or
-    final_answer(). Ctrl+C at the prompt is ignored; during a run it restarts
-    the child, so the namespace is lost.
+    Connects to an MCP server if --mcp-stdio or --mcp-server is given and
+    prints the manual. Piped input (not a terminal) is run once, as a single
+    entry. Typed lines are collected until codeop finds the entry complete or
+    invalid (a block ends with an empty line), then run; this repeats until
+    exit, EOF or final_answer(). Ctrl+C at the prompt drops the unfinished
+    entry; during a run it restarts the child, so the namespace is lost.
     """
 
     parser = ArgumentParser(description="repl command-line argument parser")

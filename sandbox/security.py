@@ -243,8 +243,9 @@ class Security:
         """Reject code that accesses blocked names or attributes.
 
         Blocks dunder names other than __name__, dunder attributes not in
-        DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST, and the
-        module escapes.
+        DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST, the module
+        escapes, and the names in STRING_ACCESS_BLACKLIST, whether used as a
+        name, as an attribute or in a from-import.
 
         Args:
             code: Python source to check.

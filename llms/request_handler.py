@@ -121,7 +121,8 @@ def send_request(
     times the request. Reply content sent as a list of parts is joined from
     its text parts. A failed request is returned, not raised: the result then
     has an empty text, zero tokens, the HTTP status code and the wait the
-    provider asks for, if any.
+    provider asks for, if any. A 200 reply that can't be parsed is returned
+    with code 502, so it is retried like a server error.
 
     Args:
         model_data: Base URL and model name to use.
@@ -136,8 +137,8 @@ def send_request(
         failed request, the requested wait.
 
     Raises:
-        requests.Timeout: If no response arrives within timeout_limit.
-        requests.ConnectionError: If the API can't be reached.
+        requests.RequestException: If the request can't be completed, e.g.
+            no response within timeout_limit or the API can't be reached.
     """
 
     url = model_data.base_url.rstrip('/') + '/chat/completions'
@@ -217,9 +218,10 @@ def handle_request(
 
     The keys are tried in order. A 401 moves on to the next key. A 429 waits
     for the time the provider gives (DEFAULT_WAIT if none, at most MAX_WAIT)
-    and retries the same key, up to MAX_RETRIES times before moving on. A 5xx,
-    timeout or connection error is retried on the same key up to 3 times, 2 s
-    apart, before moving on. Every attempt after the first counts as a retry.
+    and retries the same key, up to MAX_RETRIES times before moving on. A 5xx
+    (including an unreadable 200 reply) or any request error, such as a
+    timeout, is retried on the same key up to 3 times, 2 s apart, before
+    moving on. Every attempt after the first counts as a retry.
     Timeouts and waits never go past the deadline.
 
     Args:

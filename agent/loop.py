@@ -99,7 +99,10 @@ def run_agent(
     run in the sandbox and the observation is sent back as the next user
     message. The loop stops on final_answer, on a request error or when a
     limit is reached. Before each step, the next input size is estimated
-    from the last input, the last reply and the last observation.
+    from the last input, the last reply and the last observation, and the
+    loop stops if the total would come within INPUT_TOKEN_RESERVE tokens of
+    max_input_tokens. With end_time, each code run gets at most the time left
+    before it, and at least 1 second.
 
     Args:
         task: Task given to the agent as the first user message.
@@ -114,6 +117,8 @@ def run_agent(
             observations.
         api_url: API URL recorded in each step's metrics.
         model_name: Model name recorded in each step's metrics.
+        end_time: A time.monotonic() timestamp that caps each code run, or
+            None to use only the sandbox's own timeout.
 
     Returns:
         A RunResult with the answer and the steps. Without an answer, error is

@@ -24,8 +24,10 @@ def connect_swebench_tools(
 
     Sets SWE_TASK_FILE to the task file's absolute path and unsets
     TESTBED_PATH, so the server works in the task's Docker container. Runs
-    mcp_tools_swebench.py over stdio with the current Python interpreter. On a
-    connection error, the error is printed to stderr and the client is closed.
+    mcp_tools_swebench.py over stdio with the current Python interpreter and
+    waits up to MCP_CONNECT_TIMEOUT seconds, since the server starts the
+    container (pulling its image if needed) before it answers. On a connection
+    error, the error is printed to stderr and the client is closed.
 
     Args:
         sandbox: Sandbox that receives the server's tools.
