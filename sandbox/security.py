@@ -46,6 +46,12 @@ ATTRIBUTE_BLACKLIST: list[str] = [
     "tb_frame", "tb_next", "sys", "modules",
 ]
 
+STRING_ACCESS_BLACKLIST: list[str] = [
+    "attrgetter", "methodcaller", "Formatter", "ForwardRef",
+    "get_field", "get_type_hints", "_eval_type",
+    "singledispatch", "singledispatchmethod",
+]
+
 
 class Security:
     """Holds the sandbox allowlists and the restricted builtins.
@@ -259,6 +265,15 @@ class Security:
                 if is_dunder and name != "__name__":
                     raise PermissionError(f"access to '{name}' is not allowed")
 
+                if name in STRING_ACCESS_BLACKLIST:
+                    raise PermissionError(f"access to '{name}' is not allowed")
+
+            if isinstance(node, ast.ImportFrom):
+                for n in node.names:
+                    if n.name in STRING_ACCESS_BLACKLIST:
+                        raise PermissionError(f"access to '{n.name}' "
+                                              "is not allowed")
+
             if isinstance(node, ast.Attribute):
                 name = node.attr
 
@@ -268,6 +283,9 @@ class Security:
                     raise PermissionError(f"access to '{name}' is not allowed")
 
                 if name in ATTRIBUTE_BLACKLIST or name in self.module_escapes:
+                    raise PermissionError(f"access to '{name}' is not allowed")
+
+                if name in STRING_ACCESS_BLACKLIST:
                     raise PermissionError(f"access to '{name}' is not allowed")
 
     def _lockdown_module_escapes(self) -> set[str]:
