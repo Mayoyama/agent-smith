@@ -1,6 +1,7 @@
 """Sync MCP client running its async session in a background thread."""
 
 from concurrent.futures import Future
+from pydantic import AnyUrl
 from typing import Any
 import os
 import sys
@@ -213,7 +214,7 @@ class MCPClient:
         if not self.support_resources:
             raise RuntimeError("resources not supported")
 
-        coroutine = self.session.read_resource(uri)
+        coroutine = self.session.read_resource(AnyUrl(uri))
         pend_result = asyncio.run_coroutine_threadsafe(coroutine, self._loop)
         result = pend_result.result(timeout=300)
 

@@ -1,6 +1,7 @@
 """Interactive command-line REPL for testing the sandbox and MCP tools."""
 
 from argparse import ArgumentParser
+import codeop
 import sys
 from .sandbox import Sandbox
 from .results import Results
@@ -81,9 +82,43 @@ def repl() -> None:
     print(sandbox.get_manual(mcp_client))
 
     try:
+        if not sys.stdin.isatty():
+            read_line = sys.stdin.read()
+
+            try:
+                res: Results = sandbox.run_exec(read_line)
+
+            except KeyboardInterrupt:
+                print("interrupted, sandbox state reset")
+                sandbox.restart_child_process()
+
+                return
+
+            if res.output:
+                print(res.output, end="")
+
+            if res.final_ans is not None:
+                print(res.final_ans)
+
+                return
+
+            if res.error:
+                print(res.error)
+
+            return
+
+        collected_lines: list[str] = []
+        prompt_prefix = ">>> "
+
         while True:
             try:
-                line = input(">>> ")
+                if not collected_lines:
+                    prompt_prefix = ">>> "
+
+                else:
+                    prompt_prefix = "... "
+
+                line = input(prompt_prefix)
 
             except EOFError:
                 print()
@@ -92,28 +127,44 @@ def repl() -> None:
 
             except KeyboardInterrupt:
                 print()
+                collected_lines = []
 
                 continue
 
-            if line.strip() == "exit":
+            if not collected_lines and line.strip() == "exit":
                 break
 
+            collected_lines.append(line)
+            source = "\n".join(collected_lines)
+
             try:
-                res: Results = sandbox.run_exec(line)
+                ready = codeop.compile_command(source) is not None
+
+            except SyntaxError:
+                ready = True
+
+            if not ready:
+                continue
+
+            try:
+                res = sandbox.run_exec(source)
 
             except KeyboardInterrupt:
                 print("interrupted, sandbox state reset")
                 sandbox.restart_child_process()
+                collected_lines = []
 
                 continue
+
+            collected_lines = []
+
+            if res.output:
+                print(res.output, end="")
 
             if res.final_ans is not None:
                 print(res.final_ans)
 
                 break
-
-            if res.output:
-                print(res.output, end="")
 
             if res.error:
                 print(res.error)
