@@ -27,6 +27,7 @@ MAX_INPUT_TOKENS = 6000
 MAX_OUTPUT_TOKENS = 1500
 MAX_TIME_SECONDS = 120
 DEADLINE_SECONDS = 100
+SHUTDOWN_MARGIN_SECONDS = 10
 
 
 def fetch_code(sandbox: Sandbox) -> str:
@@ -51,7 +52,9 @@ def fetch_code(sandbox: Sandbox) -> str:
 
 
 if __name__ == "__main__":
-    deadline: float = time.monotonic() + DEADLINE_SECONDS
+    now: float = time.monotonic()
+    deadline: float = now + DEADLINE_SECONDS
+    end_time: float = now + MAX_TIME_SECONDS - SHUTDOWN_MARGIN_SECONDS
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
     signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
 
@@ -88,6 +91,7 @@ if __name__ == "__main__":
                 max_input_tokens=MAX_INPUT_TOKENS,
                 max_output_tokens=MAX_OUTPUT_TOKENS,
                 max_time_sec=MAX_TIME_SECONDS,
+                end_time=end_time,
                 exec_timeout=sandbox.config.max_execution_time_seconds,
                 api_url=args.provider_url,
                 model_name=args.model_name

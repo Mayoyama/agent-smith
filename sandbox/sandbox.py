@@ -87,7 +87,7 @@ class Sandbox:
 
         self.conn, self.process = self._start_new_process()
 
-    def run_exec(self, code: str) -> Results:
+    def run_exec(self, code: str, timeout: float | None = None) -> Results:
         """Run code in the child and return its result.
 
         If the child times out or dies, it is restarted and the result reports
@@ -112,7 +112,7 @@ class Sandbox:
                 state_reset=True,
             )
 
-        return self._wait_for_result()
+        return self._wait_for_result(timeout)
 
     def _run_request(
         self,
@@ -164,7 +164,7 @@ class Sandbox:
 
         return self.client.call_tool(msg.tool_name, kwargs)
 
-    def _wait_for_result(self) -> Results:
+    def _wait_for_result(self, timeout: float | None = None) -> Results:
         """Wait for the child's result while serving its messages.
 
         Collects streamed output, runs each tool call, resource request and
@@ -178,7 +178,12 @@ class Sandbox:
             The run's result, including any partial output.
         """
 
-        time_left: float = self.config.max_execution_time_seconds
+        limit: float = self.config.max_execution_time_seconds
+
+        if timeout is not None:
+            limit = min(limit, timeout)
+
+        time_left: float = limit
         output_collector = OutputCollector(self.buffer_limit, True)
 
         while True:
@@ -193,7 +198,7 @@ class Sandbox:
 
                 error_msg = (
                     "Execution timed out after "
-                    f"{self.config.max_execution_time_seconds} seconds "
+                    f"{int(limit)} seconds "
                     "and output is partial"
                 )
 

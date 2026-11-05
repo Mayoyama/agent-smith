@@ -14,7 +14,7 @@ from llms.models import RequestData
 from llms.request_handler import handle_request
 from sandbox.sandbox import Sandbox
 
-
+INPUT_TOKEN_RESERVE: int = 100
 Messages = list[dict[str, str]]
 
 
@@ -91,6 +91,7 @@ def run_agent(
     exec_timeout: int,
     api_url: str,
     model_name: str,
+    end_time: float | None = None,
 ) -> RunResult:
     """Run the Thought -> Code -> Observation loop until an answer or a limit.
 
@@ -137,7 +138,7 @@ def run_agent(
         if total_out >= max_output_tokens:
             error = "max_output_tokens"
             break
-        if total_in + next_in > max_input_tokens:
+        if total_in + next_in > max_input_tokens - INPUT_TOKEN_RESERVE:
             error = "max_input_tokens"
             break
         try:
@@ -159,7 +160,10 @@ def run_agent(
             else:
                 observation = no_code_observation()
         else:
-            res = sandbox.run_exec(code)
+            exec_limit: float | None = None
+            if end_time is not None:
+                exec_limit = max(1.0, end_time - time.monotonic())
+            res = sandbox.run_exec(code, exec_limit)
             if res.final_ans is not None:
                 final = res.final_ans
                 observation = res.final_ans
