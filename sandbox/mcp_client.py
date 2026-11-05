@@ -61,14 +61,15 @@ class MCPClient:
         asyncio.set_event_loop(self._loop)
         self._loop.run_forever()
 
-    def connect_stdio(self, command: str) -> None:
+    def connect_stdio(self, command: str, timeout: float = 30) -> None:
         """Start an MCP server as a subprocess and connect over stdio.
 
         Args:
             command: Shell command that launches the server.
+            timeout: Seconds to wait for the server to be ready.
 
         Raises:
-            TimeoutError: If the connection is not ready within 30 s.
+            TimeoutError: If connection is not ready within timeout seconds.
             RuntimeError: If connecting or initialising fails.
         """
 
@@ -83,7 +84,7 @@ class MCPClient:
         self._thread_holder = asyncio.run_coroutine_threadsafe(
             self._hold_connection(params), self._loop)
 
-        if not self._ready_signal.wait(timeout=30):
+        if not self._ready_signal.wait(timeout=timeout):
             raise TimeoutError("MCP server did not start in time")
 
         if self._error is not None:
@@ -118,14 +119,15 @@ class MCPClient:
             self._error = e
             self._ready_signal.set()
 
-    def connect_http(self, url: str) -> None:
+    def connect_http(self, url: str, timeout: float = 30) -> None:
         """Connect to an MCP server over streamable HTTP.
 
         Args:
             url: Server endpoint URL.
+            timeout: Seconds to wait for the server to be ready.
 
         Raises:
-            TimeoutError: If the connection is not ready within 30 s.
+            TimeoutError: If connection is not ready within timeout seconds.
             RuntimeError: If connecting or initialising fails.
         """
 
@@ -133,7 +135,7 @@ class MCPClient:
         self._thread_holder = asyncio.run_coroutine_threadsafe(
             self._hold_http(url), self._loop)
 
-        if not self._ready_signal.wait(timeout=30):
+        if not self._ready_signal.wait(timeout=timeout):
             raise TimeoutError("MCP server did not start in time")
 
         if self._error is not None:
