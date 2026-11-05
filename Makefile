@@ -10,11 +10,30 @@ GEMINI_OUT ?= cache/mbpp_solution_gemini.json
 RUN_MBPP = uv run python -m agent_mbpp --task-file $(TASK)
 TASK ?= cache/mbpp_task.json
 SEED ?=
+MOULINETTE_ENV ?=
+MOULINETTE = cd moulinette && $(if $(MOULINETTE_ENV),UV_PROJECT_ENVIRONMENT=$(MOULINETTE_ENV),) \
+	PYTHONPATH=. uv run --python 3.12 moulinette_eval
+SOLUTION ?= cache/mbpp_solution.json
+SWE_TASK ?= cache/swebench_task.json
+SWE_SOLUTION ?= cache/swebench_solution.json
 
 dump-mbpp:
 	mkdir -p cache
-	cd moulinette && UV_PROJECT_ENVIRONMENT=/goinfre/jpik/venv_moulinette PYTHONPATH=. \
-		uv run --python 3.12 moulinette_eval dump mbpp -o ../$(TASK) $(if $(ID),-t $(ID),) $(if $(SEED),-s $(SEED),)
+	$(MOULINETTE) dump mbpp -o ../$(TASK) $(if $(ID),-t $(ID),) $(if $(SEED),-s $(SEED),)
+
+dump-swebench:
+	mkdir -p cache
+	$(MOULINETTE) dump swebench -o ../$(SWE_TASK) $(if $(ID),-t $(ID),)
+
+pull-images:
+	docker pull python:3.11-slim
+	$(MOULINETTE) warmup
+
+validate-mbpp:
+	$(MOULINETTE) validate mbpp ../$(TASK) ../$(SOLUTION)
+
+validate-swebench:
+	$(MOULINETTE) validate swebench ../$(SWE_TASK) ../$(SWE_SOLUTION)
 
 run-groq-mbpp:
 	$(RUN_MBPP) --output $(GROQ_OUT) --model-name "$(GROQ_MODEL)" --provider-url "$(GROQ_URL)"
@@ -32,4 +51,4 @@ clean:
 	find . -not -path './.venv/*' -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" \)  -exec rm -rf {} +
 	find . -type f \( -name "*.pyo" -o -name "*.pyc" -o -name "*~" \) -delete
 
-.PHONY: lint clean run-groq-mbpp run-gemini-mbpp dump-mbpp
+.PHONY: lint clean run-groq-mbpp run-gemini-mbpp dump-mbpp dump-swebench validate-mbpp validate-swebench pull-images
