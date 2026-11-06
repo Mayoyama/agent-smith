@@ -93,6 +93,7 @@ def check_answer(answer: str) -> str | None:
                 "Pass the full code as a string, e.g. final_answer(code).")
     return None
 
+
 if __name__ == "__main__":
     now: float = time.monotonic()
     deadline: float = now + DEADLINE_SECONDS
