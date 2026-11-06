@@ -211,25 +211,43 @@ differently because model output is not deterministic.
 **Method**: `scripts/eval_mbpp.sh N` draws N random tasks (`dump mbpp`, drawn
 with replacement), runs the agent through `moulinette_eval run-agent 120` and
 validates each solution. Model: `qwen/qwen3.8-27b` on Groq. Single runs, no
-variance estimate, one model only (not the five of section 2).
+variance estimate, one model only (not the five of section 2). The first three
+rows were measured before the fixes of the audit; the rows marked "final" use
+the code of the final branch.
 
 | Run | Passed | Max agent time |
 |---|---|---|
-| Before merging the conversion feedback | 18/20 | 52 s |
-| After the merge | 5/5 | 58 s |
-| Latest, final branch code | 7/10 | 50 s |
+| Before merging the conversion feedback, 20 tasks | 18/20 | 52 s |
+| After the merge, 5 tasks | 5/5 | 58 s |
+| Branch code before the audit fixes, 10 tasks | 7/10 | 50 s |
+| Final, 5 tasks that had failed before (137, 452, 461, 160, 260) | 0/5 | not recorded |
+| Final, 20 tasks, first series | 19/20 | 97.4 s |
+| Final, 20 tasks, second series | 18/20 | 42.1 s |
+| Final, task 393 three times, after the fix | 3/3 | not recorded |
 
-The exam threshold is 4/5. The latest run is below it.
+The exam threshold is 4/5 (80 %). The two final series of 20 tasks give 37/40
+(92.5 %). Their three failures are 286, 393 and 229.
 
-**Analysis of the failures** (correctness only, metrics were valid):
-- 137, 452, 461: the hidden test contradicts or is ambiguous with the task
-  statement (137: ratio zeros / non-zeros; 452: expects `0` where the
-  statement says "return none"; 461: the reference code returns inside the
-  loop, so it only looks at the first character). The agent cannot guess these.
-- 160, 260: no solution. The provider returned `finish_reason: stop` with the
-  reply cut in the middle of the code (stop sequences ruled out), or the model
-  reasoned in prose without any code block. The run ended on
-  `max_input_tokens`. Cause of the provider stop not established.
+**Analysis of the failures** (correctness only, the metrics were valid)
+- 137, 452, 461, 229: the hidden test contradicts or is ambiguous with the task
+  statement, so the agent cannot guess it. 137: the test expects
+  `zeros / (n - zeros)`, the statement says "ration of zeroes". 452: it expects
+  `0` where the statement says "else return none". 461: the reference code
+  returns inside the loop, so it only looks at the first character, and the
+  model counts correctly. 229: the reference swaps elements, and the expected
+  result depends on its algorithm.
+- 286: the model wrote prose, then opened a code block that the token limit cut
+  off. The reply was cut to 150 characters before the unclosed block was
+  looked for, so the agent answered "no block" instead of "cut off". Fixed by
+  checking the full reply first. Not measured again on 286.
+- 393: the model submitted `max_length_list = lambda ...`, which was accepted
+  as a final answer although it defines no function the tests could use.
+  Fixed: a final answer must define a function or a lambda, and a refused
+  answer is sent back to the model. 393 then passes 3 times out of 3.
+- 160, 260: model failures, no solution. In both the model writes prose
+  without any code block. On 260 the replies are cut by the 400-token cap and
+  the run ends on `max_input_tokens`. On 160 the public test already gives the
+  algorithm, the
 
 ## 8. Exam pool check (6 tasks, `ministral-8b-latest`)
 
