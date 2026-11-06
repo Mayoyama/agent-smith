@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Usage (from the repo root): bash scripts/eval_mbpp.sh [N] [TASK_ID...]
+# When moulinette is outside the repo: MOUL_DIR=../moulinette bash scripts/eval_swebench.sh
 # Runs N tasks; the given TASK_IDs come first, the rest are random.
 N="${1:-5}"
 shift
@@ -7,7 +8,8 @@ IDS=("$@")
 MODEL="qwen/qwen3.8-27b"
 URL="https://api.groq.com/openai/v1"
 ROOT="$PWD"
-MOUL=(env PYTHONPATH="$ROOT/moulinette" uv run --directory "$ROOT/moulinette" --python 3.12 moulinette_eval)
+MOUL_DIR="${MOUL_DIR:-$ROOT/moulinette}"
+MOUL=(env PYTHONPATH="$MOUL_DIR" uv run --directory "$MOUL_DIR" --python 3.12 moulinette_eval)
 
 mkdir -p "$ROOT/cache"
 passed=0
