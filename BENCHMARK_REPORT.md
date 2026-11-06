@@ -231,6 +231,47 @@ The exam threshold is 4/5. The latest run is below it.
   reasoned in prose without any code block. The run ended on
   `max_input_tokens`. Cause of the provider stop not established.
 
+## 8. Exam pool check (6 tasks, `ministral-8b-latest`)
+
+The moulinette draws its SWE-bench exam tasks from a fixed pool of 6 tasks
+(`EXAM_POOL`). Section 2 covers three of them. This section adds the other
+three and a second pass over the whole pool with the final agent. Model:
+`ministral-8b-latest` (Mistral). Single runs, no variance estimate.
+
+**8.1 Three more tasks (agent of 2 November, before `agent/extract.py`)**
+
+| Task | Pass | Iterations | Input tokens | Output tokens | Time (s) |
+|---|---|---|---|---|---|
+| django-11066 | PASS | 5 | 17,894 | 287 | 26.0 |
+| sympy-18189 | PASS | 7 | 27,678 | 491 | 53.7 |
+| scikit-learn-13439 | PASS | 11 | 45,858 | 592 | 31.8 |
+
+With the three ministral-8b rows of section 2 (sympy-13480, xarray-4629,
+sympy-14711), the model passed the 6 tasks of the pool with that agent.
+
+**8.2 Second pass with the final agent and prompt (`run-agent 900`)**
+
+| Task | Pass | Iterations |
+|---|---|---|
+| sympy-13480 | PASS | 4 |
+| xarray-4629 | PASS | 5 |
+| django-11066 | PASS | 7 |
+| sympy-18189 | PASS | 7 |
+| scikit-learn-13439 | PASS | 30 (limit reached) |
+| sympy-14711 | FAIL | 30 |
+
+5 of 6 pass, above the exam threshold of 2 of 3.
+
+Notes
+- scikit-learn-13439 passes on its last allowed iteration: it is fragile.
+  The same model and task took 11 iterations in 8.1, and failed with an
+  empty solution before the prompt rule on `search_code` was added: the model
+  passed a path as `file_pattern`, which gives a false "no lines matched"
+  (12 times in that run).
+- sympy-14711 fails because of the model's reasoning: it patches `Mul`
+  instead of handling `other == 0`. No prompt rule was added for it, since a
+  rule written for one task would overfit (V.1.2 of the subject).
+
 ## Reproducing
 
 ```
