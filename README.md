@@ -196,5 +196,13 @@ As part of the research process, especially where the subject left a behaviour u
 - Parts of this README
 - Debugging and testing.
 - Resolving an issue with the moulinette code preventing it from using Python 3.10 correctly.
+- Helping understand the structure of the existing code and how its elements connect to each other.
+- Auditing the code of `agent/`, `llms/`, `agent_mbpp/` and `agent_swebench/` against the subject.
+- Fixing the issues found by the audit.
+- Helping with prompting (system prompts of both agents).
+- Diagnosing failed runs from the `solution.json` traces.
+- Testing.
+- Writing the MBPP script (`scripts/eval_mbpp.sh`).
+- Writing the README.
 
 [↑ Back to top](#top)
