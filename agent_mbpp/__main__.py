@@ -53,6 +53,28 @@ def fetch_code(sandbox: Sandbox) -> str:
     return text
 
 
+def check_answer(answer: str) -> str | None:
+    """Refuse a final answer that is not the source of a function.
+
+    Args:
+        answer: Value the model passed to final_answer.
+
+    Returns:
+        A message for the model if the answer is refused, else None.
+    """
+
+    try:
+        compile(answer, "<answer>", "exec")
+    except (SyntaxError, ValueError):
+        return ("final_answer was not accepted: it is not valid Python "
+                "source. Pass the full code as a string, e.g. "
+                "final_answer(code).")
+    if "def " not in answer:
+        return ("final_answer was not accepted: it defines no function. "
+                "Pass the full code as a string, e.g. final_answer(code).")
+    return None
+
+
 if __name__ == "__main__":
     now: float = time.monotonic()
     deadline: float = now + DEADLINE_SECONDS
@@ -99,6 +121,7 @@ if __name__ == "__main__":
                 api_url=args.provider_url,
                 model_name=args.model_name,
                 steps=steps,
+                check_answer=check_answer,
             )
         except Exception as e:
             result = RunResult(None, steps, f"crash: {e}")

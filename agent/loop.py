@@ -119,6 +119,7 @@ def run_agent(
     model_name: str,
     end_time: float | None = None,
     steps: list[StepMetrics] | None = None,
+    check_answer: Callable[[str], str | None] | None = None,
 ) -> RunResult:
     """Run the Thought -> Code -> Observation loop until an answer or a limit.
 
@@ -149,6 +150,10 @@ def run_agent(
         steps: List that receives each step as it is recorded, so the caller
             keeps the steps if this function raises. A new list is used if
             None.
+        check_answer: Called on each final answer; it returns a message when
+            the answer must be refused, else None. A refused answer is sent
+            back to the model as the observation and the loop goes on. None
+            accepts every answer.
 
     Returns:
         A RunResult with the answer and the steps. Without an answer, error is
@@ -166,7 +171,7 @@ def run_agent(
     total_in = 0
     total_out = 0
     next_in = 0
-    failed_requests: int = 0
+    failed_requests = 0
     start = time.monotonic()
     for step in range(1, max_iterations + 1):
         if time.monotonic() - start > max_time_sec:
@@ -207,8 +212,14 @@ def run_agent(
                 exec_limit = max(1.0, end_time - time.monotonic())
             res = sandbox.run_exec(code, exec_limit)
             if res.final_ans is not None:
-                final = res.final_ans
-                observation = res.final_ans
+                problem: str | None = None
+                if check_answer is not None:
+                    problem = check_answer(res.final_ans)
+                if problem is None:
+                    final = res.final_ans
+                    observation = res.final_ans
+                else:
+                    observation = problem
             else:
                 observation = format_observation(res, exec_timeout)
 
