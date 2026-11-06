@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage (from the repo root): bash scripts/eval_swebench.sh [INSTANCE_ID...]
 # When moulinette is outside the repo: MOUL_DIR=../moulinette bash scripts/eval_swebench.sh
-# Runs and validates each SWE-bench task; defaults to the 3 benchmark tasks.
+# Runs and validates each SWE-bench task; defaults to the 6 benchmark tasks.
 # On the school computers, run it inside rootlesskit bash.
 
 IDS=("$@")

@@ -5,8 +5,8 @@
 N="${1:-5}"
 shift
 IDS=("$@")
-MODEL="qwen/qwen3.8-27b"
-URL="https://api.groq.com/openai/v1"
+MODEL="${MODEL:-qwen/qwen3.8-27b}"
+URL="${URL:-https://api.groq.com/openai/v1}"
 ROOT="$PWD"
 MOUL_DIR="${MOUL_DIR:-$ROOT/moulinette}"
 MOUL=(env PYTHONPATH="$MOUL_DIR" uv run --directory "$MOUL_DIR" --python 3.12 moulinette_eval)

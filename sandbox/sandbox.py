@@ -11,6 +11,16 @@ import multiprocessing
 import time
 
 
+JSON_TO_PYTHON: dict[str, str] = {
+    "string": "str",
+    "integer": "int",
+    "number": "float",
+    "boolean": "bool",
+    "array": "list",
+    "object": "dict",
+}
+
+
 class Sandbox:
     """Runs code in a child process whose namespace persists between runs.
 
@@ -350,7 +360,9 @@ class Sandbox:
 
         Returns:
             One line per function, resource and prompt, with headers for the
-            resource and prompt sections.
+            resource and prompt sections. Each tool parameter is shown with
+            its Python type (list[...] for arrays, Any when the schema gives
+            none) and its default, if it has one.
         """
 
         manual_string = ("final_answer(answer: str): submit your final answer "
@@ -370,8 +382,21 @@ class Sandbox:
                 param_strings: list[str] = []
 
                 for param_name, param_info in properties.items():
-                    param_strings.append(
-                        f"{param_name}: {param_info.get('type', 'any')}")
+                    json_type = param_info.get("type", "any")
+                    type_name = JSON_TO_PYTHON.get(json_type, "Any")
+
+                    if json_type == "array":
+                        item = param_info.get("items", {})
+                        item_json = item.get("type", "any")
+                        item_type = JSON_TO_PYTHON.get(item_json, "Any")
+                        type_name = f"list[{item_type}]"
+
+                    param_string = f"{param_name}: {type_name}"
+
+                    if "default" in param_info:
+                        param_string += f" = {param_info['default']!r}"
+
+                    param_strings.append(param_string)
 
                 desc = tool.description if tool.description is not None else ''
 

@@ -30,8 +30,9 @@ def child_process(
     sets the memory and file size limits, blocks network access, clears the
     environment variables (so API keys can't be read) and ignores Ctrl+C. Each
     message is checked with the AST check and executed, with printed output
-    streamed to the parent, then answered with a Results. A None message ends
-    the loop.
+    streamed to the parent, then answered with a Results. An error, including
+    a SystemExit or KeyboardInterrupt raised by the code, is sent back as the
+    traceback in Results.error. A None message ends the loop.
 
     Args:
         conn: Child end of the pipe to the parent.
@@ -89,7 +90,7 @@ def child_process(
         except FinalAnswer as fa:
             final_answer = str(fa.value)
 
-        except Exception:
+        except (SystemExit, KeyboardInterrupt, Exception):
             err = traceback.format_exc(chain=True)
 
         finally:

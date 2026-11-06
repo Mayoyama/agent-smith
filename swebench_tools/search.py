@@ -24,7 +24,7 @@ def search_code(
 
     Raises:
         ValueError: If grep fails, e.g. for an invalid regex.
-        RuntimeError: If grep can't be started.
+        RuntimeError: If grep can't be started or times out.
     """
 
     result: RunResults = workspace.execute_command(
@@ -44,6 +44,9 @@ def search_code(
 
     if result.exit_code == 1:
         return f"no lines matched '{pattern}'", 1
+
+    if result.exit_code == -1:
+        raise RuntimeError(result.std_err)
 
     lines = result.std_out.splitlines()
     res_string = f"{len(lines)} matches\n"
@@ -75,7 +78,7 @@ def search_function_or_class_definition_in_code(
 
     Raises:
         ValueError: If name is not a valid identifier, or grep fails.
-        RuntimeError: If grep can't be started.
+        RuntimeError: If grep can't be started or times out.
     """
 
     if not name.isidentifier():
@@ -116,7 +119,7 @@ def find_references(
 
     Raises:
         ValueError: If name is not a valid identifier, or grep fails.
-        RuntimeError: If grep can't be started.
+        RuntimeError: If grep can't be started or times out.
     """
 
     if not name.isidentifier():

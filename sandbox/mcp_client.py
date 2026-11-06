@@ -5,6 +5,8 @@ from pydantic import AnyUrl
 from typing import Any
 import os
 import sys
+import time
+import httpx
 import shlex
 import asyncio
 import threading
@@ -18,6 +20,29 @@ try:
 except ImportError as e:
     print(e)
     sys.exit(1)
+
+
+def cause_is_refused_connection(error: BaseException) -> bool:
+    """Check whether an error comes from a refused connection.
+
+    Exception groups (as raised by the MCP client's task groups) are searched
+    through, so a refusal wrapped inside one is found too.
+
+    Args:
+        error: Error raised while connecting.
+
+    Returns:
+        True if the error, or an error it groups, is an httpx.ConnectError,
+        else False.
+    """
+
+    if isinstance(error, httpx.ConnectError):
+        return True
+    for secondary_error in getattr(error, "exceptions", []):
+        if cause_is_refused_connection(secondary_error):
+            return True
+
+    return False
 
 
 class MCPClient:
@@ -122,18 +147,24 @@ class MCPClient:
     def connect_http(self, url: str, timeout: float = 30) -> None:
         """Connect to an MCP server over streamable HTTP.
 
+        While the connection is refused (e.g. the server is still starting),
+        it is tried again every 0.5 seconds until timeout runs out.
+
         Args:
             url: Server endpoint URL.
-            timeout: Seconds to wait for the server to be ready.
+            timeout: Seconds to wait for the server to be ready, retries
+                included.
 
         Raises:
             TimeoutError: If connection is not ready within timeout seconds.
             RuntimeError: If connecting or initialising fails.
         """
 
+        deadline: float = time.monotonic() + timeout
+
         self._thread.start()
         self._thread_holder = asyncio.run_coroutine_threadsafe(
-            self._hold_http(url), self._loop)
+            self._hold_http(url, deadline), self._loop)
 
         if not self._ready_signal.wait(timeout=timeout):
             raise TimeoutError("MCP server did not start in time")
@@ -141,34 +172,50 @@ class MCPClient:
         if self._error is not None:
             raise RuntimeError(f"MCP connection failure: {self._error}")
 
-    async def _hold_http(self, url: str) -> None:
+    async def _hold_http(self, url: str, deadline: float) -> None:
         """Open an HTTP session, list tools, then wait for close().
 
-        Resources and prompts are also listed if the server supports them.
+        Resources and prompts are also listed if the server supports them. A
+        refused connection is tried again every 0.5 seconds until deadline;
+        any other error, or a refusal after deadline, is stored in _error.
 
         Args:
             url: Server endpoint URL.
+            deadline: time.monotonic() timestamp after which a refused
+                connection is no longer tried again.
         """
 
-        try:
-            async with streamable_http_client(url) as (read, write, _):
-                async with ClientSession(read, write) as session:
-                    init_res = await session.initialize()
+        while True:
+            try:
+                async with streamable_http_client(url) as (read, write, _):
+                    async with ClientSession(read, write) as session:
+                        init_res = await session.initialize()
 
-                    await self.handle_resources_prompts(init_res, session)
+                        await self.handle_resources_prompts(init_res, session)
 
-                    tool_list = await session.list_tools()
-                    self.tools_list = tool_list.tools
-                    self.session = session
+                        tool_list = await session.list_tools()
+                        self.tools_list = tool_list.tools
+                        self.session = session
 
-                    self._stop_signal = asyncio.Event()
-                    self._ready_signal.set()
+                        self._stop_signal = asyncio.Event()
+                        self._ready_signal.set()
 
-                    await self._stop_signal.wait()
+                        await self._stop_signal.wait()
 
-        except Exception as e:
-            self._error = e
-            self._ready_signal.set()
+                return
+
+            except Exception as e:
+                refused = cause_is_refused_connection(e)
+
+                if refused and time.monotonic() < deadline:
+                    await asyncio.sleep(0.5)
+
+                    continue
+
+                self._error = e
+                self._ready_signal.set()
+
+                break
 
     async def handle_resources_prompts(
         self,

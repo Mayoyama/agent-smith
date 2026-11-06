@@ -27,7 +27,7 @@ The agent is evaluated on two benchmarks: MBPP (short algorithmic Python problem
 
 Install dependencies with `uv sync`. Use `make lint` to run flake8 and mypy, and `make clean` to remove caches and compiled files.
 
-The interactive sandbox is started with `uv run sandbox`, optionally followed by a JSON config file (e.g. `sandbox_template.json`). Without one, the defaults from the subject are used. An MCP server is connected with `--mcp-stdio "<command>"` (the sandbox starts the server itself) or `--mcp-server <URL>` (an already running server over streamable HTTP). A block such as a `def` or a `for` loop is typed over several lines at a `... ` prompt and ends with an empty line. Input piped into the sandbox (e.g. `cat test.py | uv run sandbox`) runs as one entry. Type `exit` or press Ctrl+D to quit.
+The interactive sandbox is started with `uv run sandbox`, optionally followed by a JSON config file (e.g. `sandbox_template.json`). Without one, the defaults from the subject are used. An MCP server is connected with `--mcp-stdio "<command>"` (the sandbox starts the server itself) or `--mcp-server <URL>` (an already running server over streamable HTTP; while the connection is refused, e.g. because the server is still starting, it is tried again every 0.5 seconds for up to 30 seconds). A block such as a `def` or a `for` loop is typed over several lines at a `... ` prompt and ends with an empty line. Input piped into the sandbox (e.g. `cat test.py | uv run sandbox`) runs as one entry. Type `exit` or press Ctrl+D to quit.
 
 The MBPP tool server runs over stdio by default. Start it with `python mcp_tools_mbpp.py --http [--port N]` to serve it over streamable HTTP instead, at `http://127.0.0.1:N/mcp` (port 8000 by default).
 
@@ -58,7 +58,7 @@ PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mb
 - `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`, `docker_workspace.py`).
 - `agent_mbpp/`, `agent_swebench/`: the two agent entry points. Each has its `__main__.py` (limits, setup, fallback answer), its `prompt.py` (system prompt and first message) and its `mcp_setup.py` (connection to its tool server).
 - `models_config.json`: the LLM providers (base URL and API key variable prefix). `sandbox_template.json`: an example sandbox config. `pyproject.toml` and `Makefile`: dependencies, `make lint` and helper targets.
-- `bench/`: the `solution.json` files behind `BENCHMARK_REPORT.md`. `scripts/eval_mbpp.sh`: runs N random MBPP tasks through the moulinette (`bash scripts/eval_mbpp.sh N [ID...]`).
+- `bench/`: the `solution.json` files behind `BENCHMARK_REPORT.md`. `scripts/eval_mbpp.sh`: runs N MBPP tasks through the moulinette, the given IDs first and the rest random (`bash scripts/eval_mbpp.sh N [ID...]`). `scripts/eval_swebench.sh`: dumps, runs (under the 900-second `run-agent` limit) and validates the given SWE-bench tasks, all 6 exam-pool tasks by default, and checks that no container is left (`bash scripts/eval_swebench.sh [ID...]`; on the school computers, inside `rootlesskit bash`). Both scripts run from the repo root and read three optional environment variables: `MODEL` and `URL` (defaults: qwen on Groq for MBPP, Gemini for SWE-bench) and `MOUL_DIR`, the moulinette folder (default: `moulinette/` in the repo).
 
 [↑ Back to top](#top)
 
@@ -110,13 +110,15 @@ Restrictions, configured through `SandboxConfig` (JSON file or defaults):
 - **Network:** `socket.socket` and `socket.getaddrinfo` are replaced in the child.
 - **AST check:** code accessing dunder names or frame/traceback attributes is rejected before it runs. So is code using functions that reach attributes or run `eval` through a string (`operator.attrgetter`, `string.Formatter`, `typing.get_type_hints` and a few others in `STRING_ACCESS_BLACKLIST`), whether they are used by name, as an attribute or imported under another name.
 - **Timeout:** enforced by the parent; the child is killed when the time runs out. Time spent in MCP tool calls doesn't count.
-- **Memory:** `RLIMIT_AS` in the child, plus a 100 MB per-file size limit.
+- **Memory:** `RLIMIT_AS` in the child, plus a 100 MB per-file size limit. The limit counts the child's whole virtual memory, including what it inherits from the parent at the fork, so code gets somewhat less than `max_memory_mb` (a little over 300 MB of the default 512).
 
 Printed output is streamed to the parent while the code runs, so partial output survives a timeout. Output and errors are truncated to a limit (10,000 characters by default), keeping the first quarter and the last three quarters with a marker stating how much was cut.
 
 `final_answer()` is always in the namespace and is not an MCP tool: it raises a `BaseException` subclass that ends the run, so `except Exception` in generated code can't swallow it.
 
-MCP tools are injected into the namespace as wrapper functions. A call is sent from the child to the parent, which checks and maps the arguments (positional arguments are matched to the tool's schema parameters) and calls the server. If the server provides resources or prompts, `read_resource_uri(uri)` and `read_prompt_info(name, args)` are added the same way. The manual given to the LLM is generated from the connected server's tool, resource and prompt listings.
+`SystemExit` and `KeyboardInterrupt` are available to the code and are not caught silently: when the code raises one, its traceback comes back as the error of that run and reaches the agent loop in the observation (V.2, exception propagation). The child ignores SIGINT, so a real Ctrl+C is handled by the parent and stops the agent.
+
+MCP tools are injected into the namespace as wrapper functions. A call is sent from the child to the parent, which checks and maps the arguments (positional arguments are matched to the tool's schema parameters) and calls the server. If the server provides resources or prompts, `read_resource_uri(uri)` and `read_prompt_info(name, args)` are added the same way. The manual given to the LLM is generated from the connected server's tool, resource and prompt listings; each parameter is shown with its Python type (e.g. `test_list: list[str]`) and its default, if any (e.g. `pattern: str = '*'`).
 
 [↑ Back to top](#top)
 
@@ -124,7 +126,7 @@ MCP tools are injected into the namespace as wrapper functions. A call is sent f
 
 ### MBPP Tools
 
-`run_tests(code, test_list)` runs each assertion in its own Python subprocess together with the candidate code, with a 5-second timeout per assertion, so one failing or hanging test doesn't hide the others. It returns a JSON string with `success` (true only if every assertion passed) and `output` (one PASS, FAIL or TIMEOUT line per assertion, with the last line of the error for failures; a failed `==` assertion reports the value it got, as `got <value>`). Error messages are cut to 300 characters with a marker. An empty test list returns `success: false`. Imports needed by the tests must be included in `code`.
+`run_tests(code, test_list)` runs each assertion in its own Python subprocess together with the candidate code, with a 5-second timeout per assertion, so one failing or hanging test doesn't hide the others. It returns a JSON string with `success` (true only if every assertion passed) and `output` (one PASS, FAIL or TIMEOUT line per assertion, with the last line of the error for failures; a failed `==` assertion reports the value it got, as `got <value>`). Error messages are cut to 300 characters with a marker. Each subprocess gets only `PATH` as its environment, so the candidate code can't read API keys or other variables of the server. An empty test list returns `success: false`. Imports needed by the tests must be included in `code`.
 
 The server supports stdio and streamable HTTP (see Instructions).
 
@@ -136,15 +138,15 @@ The subject leaves several details of the tools open (V.4, V.5). The choices mad
 
 - **Return values:** the subject describes some outputs only as "output", and doesn't say what `run_tests()` returns. The return value is the only thing the LLM gets back, so every tool returns its result as text; `run_tests()` returns the eval script's exit code, stdout and stderr.
 - **Paths:** relative paths are resolved from the repository root: `TESTBED_PATH` locally, `/testbed` in the container.
-- **Docker (V.4):** the sandbox runs on the host and the tools reach into the container (option b). The tool server owns the container: it is removed when the server exits or gets SIGTERM, and stops by itself after 20 minutes if the server is killed with SIGKILL. Shell commands run through `bash -lc` so the task's conda environment is active, and every command is stopped by `timeout` inside the container.
+- **Docker (V.4):** the sandbox runs on the host and the tools reach into the container (option b). The tool server owns the container: it is removed when the server exits or gets SIGTERM, and stops by itself after 20 minutes if the server is killed with SIGKILL. The container runs with `--network none`, so code in it (e.g. through `run_command`) can't reach the network or fetch a solution; the eval scripts of all 6 exam-pool tasks were checked to run without it. Shell commands run through `bash -lc` so the task's conda environment is active, and every command is stopped by `timeout` inside the container.
 - **`read_file`:** lines are numbered from 1, like `cat -n`. An `end_line` past the end of the file returns the rest of the file with a note giving its line count, instead of an error.
 - **`edit_file`:** `old_str` must occur exactly once; otherwise nothing is changed and the error says how often it was found. This avoids editing the wrong place silently. After a `.py` file is edited, a warning is added if it no longer compiles (required by V.1).
 - **`list_files`:** `pattern` is a shell-style file name pattern (e.g. `*.py`). Subdirectories are searched, `.git` is skipped, and only files are listed.
-- **`search_code`:** `pattern` is an extended regex (`grep -E`), `file_pattern` a shell-style pattern for which files to search, and the whole repository is searched.
+- **`search_code`:** `pattern` is an extended regex (`grep -E`), `file_pattern` a shell-style pattern for which files to search, and the whole repository is searched. A search that runs past its time limit fails with a `TIMEOUT` error rather than reporting matches.
 - **`search_function_or_class_definition_in_code`:** finds lines that define the name with `def`, `async def` or `class`.
 - **`find_references`:** the subject doesn't say what `filepath` and `line` are for. They are used to leave the definition itself out of the results.
 - **`get_patch`:** new, untracked files are included in the diff (`git add -N`), so a fix that adds a file is complete. An empty diff returns a message instead of an empty string.
-- **Long output:** tool results longer than 10,000 characters keep their start and end with a marker saying how much was cut, so the LLM knows output is missing (V.1). `get_patch` is never cut, since a cut patch would be broken.
+- **Long output:** tool results longer than 9,000 characters keep their start and end with a marker saying how much was cut, so the LLM knows output is missing (V.1). `get_patch` is never cut, since a cut patch would be broken.
 
 [↑ Back to top](#top)
 

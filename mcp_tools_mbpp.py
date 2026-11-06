@@ -99,6 +99,7 @@ def run_tests(code: str, test_list: list[str]) -> str:
                 capture_output=True,
                 text=True,
                 timeout=TIMEOUT_LIMIT,
+                env={"PATH": os.environ.get("PATH", "")},
             )
 
         except subprocess.TimeoutExpired:

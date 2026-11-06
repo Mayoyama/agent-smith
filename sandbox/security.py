@@ -157,9 +157,8 @@ class Security:
     def build_builtins_whitelist(self) -> dict[str, Any]:
         """Build the restricted builtins for the sandbox namespace.
 
-        Contains the names in BUILTINS_WHITELIST, every exception class except
-        SystemExit and KeyboardInterrupt, and the restricted __import__ and
-        open.
+        Contains the names in BUILTINS_WHITELIST, every exception class,
+        and the restricted __import__ and open.
 
         Returns:
             Dict to use as the namespace's __builtins__.
@@ -174,9 +173,6 @@ class Security:
             value = getattr(builtins, name)
 
             if isinstance(value, type) and issubclass(value, BaseException):
-                if name in ("SystemExit", "KeyboardInterrupt"):
-                    continue
-
                 safe_to_use[name] = value
 
         safe_to_use["__import__"] = self.safe_import

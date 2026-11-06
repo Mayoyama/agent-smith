@@ -43,6 +43,9 @@ class DockerWorkspace(WorkspaceBase):
     def docker_run(self, image: str, timeout: int) -> None:
         """Start a detached container from an image and store its ID.
 
+        The container runs with --network none, so nothing inside it can reach
+        the network; the eval scripts of the tasks don't need it.
+
         Args:
             image: Docker image to start, e.g. the task's docker_image.
             timeout: Seconds to wait for docker run, image pull included.
@@ -60,6 +63,8 @@ class DockerWorkspace(WorkspaceBase):
             "run",
             "-d",
             "--rm",
+            "--network",
+            "none",
             image,
             "sleep",
             str(CONTAINER_LIFESPAN),

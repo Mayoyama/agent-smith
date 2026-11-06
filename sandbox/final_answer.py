@@ -22,14 +22,14 @@ class FinalAnswer(BaseException):
         self.value = value
 
 
-def send_final_answer(value: object) -> None:
+def send_final_answer(answer: object) -> None:
     """Submit a final answer from sandboxed code.
 
     Args:
-        value: The answer to submit.
+        answer: The answer to submit.
 
     Raises:
         FinalAnswer: Always, carrying the value.
     """
 
-    raise FinalAnswer(value)
+    raise FinalAnswer(answer)
