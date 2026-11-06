@@ -203,6 +203,6 @@ As part of the research process, especially where the subject left a behaviour u
 - Diagnosing failed runs from the `solution.json` traces.
 - Testing.
 - Writing the MBPP script (`scripts/eval_mbpp.sh`).
-- Writing the README.
+- Writing the benchmark report.
 
 [↑ Back to top](#top)
