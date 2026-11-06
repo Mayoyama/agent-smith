@@ -63,7 +63,7 @@ def cut_off_observation() -> str:
 
     return (
         "Your ```python block was cut off before its closing ``` "
-        "(the reply hit the token limit), so none of it was run and "
+        "(the reply ended early), so none of it was run and "
         "none of its variables exist. Send the whole block again, shorter:"
         " a one-sentence Thought, no comments."
     )
