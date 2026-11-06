@@ -5,18 +5,51 @@ from common import json_loader
 from sys import stderr
 import dotenv
 import os
+from urllib.parse import urlparse
+
+
+def guess_provider(provider_url: str) -> LLMProvider:
+    """Build a provider entry for a URL missing from the config file.
+
+    The key prefix comes from the host name without a leading api. or www.
+    and without its last label: https://api.together.xyz/v1 gives
+    TOGETHER_API_KEY.
+
+    Args:
+        provider_url: Base URL of the provider's API, from --provider-url.
+
+    Returns:
+        A provider with that URL and the guessed key prefix.
+
+    Raises:
+        ValueError: If the URL is not a valid http(s) URL.
+    """
+
+    host: str = urlparse(provider_url).hostname or ""
+    labels: list[str] = host.split(".")
+
+    if len(labels) > 2 and labels[0] in ("api", "www"):
+        labels = labels[1:]
+
+    name: str = labels[-2] if len(labels) >= 2 else labels[0]
+    name = name.replace("-", "_")
+
+    return LLMProvider(
+        name=name,
+        base_url=provider_url,
+        key_prefix=f"{name.upper()}_API_KEY",
+    )
 
 
 def validate_llm_providers(
-    config_path: str,
-    model_name: str,
-    provider_url: str,
+    config_path: str, model_name: str, provider_url: str,
 ) -> LLMModelData:
     """Find the provider for a URL and collect its API keys.
 
     Loads .env into the environment (a missing file only prints a warning),
     loads the provider config and picks the provider whose base_url matches
-    provider_url, ignoring trailing slashes. Its keys are read from the plain
+    provider_url, ignoring trailing slashes (an unknown URL gets a provider
+    guessed by guess_provider). Its keys are read from the plain
     variable <key_prefix>, then from the numbered variables <key_prefix>_1,
     <key_prefix>_2 and so on until one is missing or empty; empty values are
     skipped.
@@ -31,8 +64,9 @@ def validate_llm_providers(
 
     Raises:
         RuntimeError: If the config file can't be loaded.
-        ValueError: If no provider matches provider_url, or no API key is set
-            for the matching provider.
+        ValueError: If the URL is not a valid http(s) URL, or no API key is
+            set for the provider (configured, or guessed from the host when
+            the URL is not in the config).
     """
 
     loaded = dotenv.load_dotenv()
@@ -51,7 +85,7 @@ def validate_llm_providers(
             llm_provider = provider
 
     if llm_provider is None:
-        raise ValueError(f"no provider config for '{provider_url}'")
+        llm_provider = guess_provider(provider_url)
 
     api_keys: list[str] = []
 
