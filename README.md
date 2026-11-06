@@ -50,11 +50,15 @@ PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mb
 
 ## System Architecture
 
+- `agent/`: the agent loop shared by both agents: the loop (`loop.py`: `run_agent`, `make_generate`, history compaction), code extraction from the reply in any format (`extract.py`), formatting of sandbox results and feedback messages for the LLM (`observation.py`) and writing of `solution.json` (`solution.py`).
+- `llms/`: the LLM layer: provider config and API keys (`model_loader.py`), requests with retries and key rotation (`request_handler.py`) and the Pydantic models (`models.py`).
 - `sandbox/`: the sandbox (`sandbox.py`), its child process (`child_process.py`), security restrictions (`security.py`), output streaming (`output_stream.py`), config loading (`config.py`), `final_answer` (`final_answer.py`), the MCP client (`mcp_client.py`) and the REPL (`repl.py`).
 - `common/`: code shared between the sandbox, agents and tool servers: the moulinette models (`models_public.py`), JSON loading into Pydantic models (`json_loader.py`), the agent and tool server CLI parsers (`arg_parsers.py`), pipe messages (`messages.py`) and size-limited output collection (`output_collector.py`).
 - `mcp_tools_mbpp.py`: MCP server with the MBPP tools.
 - `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`, `docker_workspace.py`).
-- `agent_mbpp/`, `agent_swebench/`: agent entry points.
+- `agent_mbpp/`, `agent_swebench/`: the two agent entry points. Each has its `__main__.py` (limits, setup, fallback answer), its `prompt.py` (system prompt and first message) and its `mcp_setup.py` (connection to its tool server).
+- `models_config.json`: the LLM providers (base URL and API key variable prefix). `sandbox_template.json`: an example sandbox config. `pyproject.toml` and `Makefile`: dependencies, `make lint` and helper targets.
+- `bench/`: the `solution.json` files behind `BENCHMARK_REPORT.md`. `scripts/eval_mbpp.sh`: runs N random MBPP tasks through the moulinette (`bash scripts/eval_mbpp.sh N [ID...]`).
 
 [↑ Back to top](#top)
 
