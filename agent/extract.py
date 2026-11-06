@@ -46,11 +46,11 @@ def parse_python(text: str) -> Match | None:
 
     Returns:
         The block's start and end positions in text and its stripped code, or
-        None if there is no block.
+        None if there is no block or its code is empty.
     """
 
     match = CODE_BLOCK.search(text)
-    if match is None:
+    if match is None or not match.group(1).strip():
         return None
     return match.start(), match.end(), match.group(1).strip()
 
