@@ -13,6 +13,7 @@ from .output_stream import OutputStreamer
 import traceback
 import resource
 import signal
+import os
 
 
 def child_process(
@@ -26,10 +27,11 @@ def child_process(
 
     Gives the namespace restricted builtins, adds final_answer, one wrapper per
     tool and, if the server supports them, the resource and prompt functions,
-    sets the memory and file size limits, blocks network access and ignores
-    Ctrl+C. Each message is checked with the AST check and executed, with
-    printed output streamed to the parent, then answered with a Results. A None
-    message ends the loop.
+    sets the memory and file size limits, blocks network access, clears the
+    environment variables (so API keys can't be read) and ignores Ctrl+C. Each
+    message is checked with the AST check and executed, with printed output
+    streamed to the parent, then answered with a Results. A None message ends
+    the loop.
 
     Args:
         conn: Child end of the pipe to the parent.
@@ -64,6 +66,8 @@ def child_process(
     resource.setrlimit(resource.RLIMIT_FSIZE, (max_file_bytes, max_file_bytes))
 
     process_protections.replace_socket()
+
+    os.environ.clear()
 
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
