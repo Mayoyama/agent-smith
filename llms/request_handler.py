@@ -216,10 +216,11 @@ def handle_request(
 ) -> tuple[RequestData, int]:
     """Send a request, retrying and switching API keys as needed.
 
-    The keys are tried in order. A 401 moves on to the next key. A 429 waits
-    for the time the provider gives (DEFAULT_WAIT if none, at most MAX_WAIT)
-    and retries the same key, up to MAX_RETRIES times before moving on. A 5xx
-    (including an unreadable 200 reply) or any request error, such as a
+    The keys are tried in order. A 401, 402 or 403 drops the key. A 429 moves
+    on to the next key at once. When every key has been tried, the keys that
+    were rate limited are retried after the shortest wait the providers gave
+    (DEFAULT_WAIT if none, at most MAX_WAIT), for at most MAX_RETRIES waits. A
+    5xx (including an unreadable 200 reply) or any request error, such as a
     timeout, is retried on the same key up to 3 times, 2 s apart, before
     moving on. Every attempt after the first counts as a retry.
     Timeouts and waits never go past the deadline.
@@ -242,47 +243,65 @@ def handle_request(
     """
 
     total_retries: int = 0
+    pending: list[str] = list(model_data.api_keys)
 
-    for key in model_data.api_keys:
-        retry_count: int = 0
+    for attempt in range(MAX_RETRIES + 1):
+        limited: list[str] = []
+        waits: list[float] = []
 
-        while True:
-            left: float = time_left(deadline)
+        for key in pending:
+            retry_count: int = 0
 
-            if left <= 0:
-                raise RuntimeError("max_time")
+            while True:
+                left: float = time_left(deadline)
 
-            try:
-                data = send_request(
-                    model_data, key, msgs, min(timeout_limit, left),
-                    stop, max_tokens
-                )
+                if left <= 0:
+                    raise RuntimeError("max_time")
 
-                if data.reply_code == 200:
-                    return (data, total_retries)
+                try:
+                    data = send_request(
+                        model_data, key, msgs, min(timeout_limit, left),
+                        stop, max_tokens
+                    )
 
-                if data.reply_code == 401:
-                    total_retries += 1
+                    if data.reply_code == 200:
+                        return (data, total_retries)
 
-                    break
+                    if data.reply_code in (401, 402, 403):
+                        total_retries += 1
 
-                if data.reply_code == 429:
-                    retry_count += 1
-                    total_retries += 1
-
-                    if retry_count > MAX_RETRIES:
                         break
 
-                    wait = DEFAULT_WAIT
+                    if data.reply_code == 429:
+                        total_retries += 1
+                        limited.append(key)
 
-                    if data.retry_after is not None:
-                        wait = data.retry_after
+                        if data.retry_after is not None:
+                            waits.append(data.retry_after)
 
-                    sleep_until(min(wait, MAX_WAIT), deadline)
+                        else:
+                            waits.append(DEFAULT_WAIT)
 
-                    continue
+                        break
 
-                if data.reply_code >= 500 and data.reply_code < 600:
+                    if data.reply_code >= 500 and data.reply_code < 600:
+                        retry_count += 1
+                        total_retries += 1
+
+                        if retry_count <= 3:
+                            sleep_until(2, deadline)
+
+                            continue
+
+                        else:
+                            break
+
+                    else:
+                        raise RuntimeError(
+                            f"handle request error: {data.reply_code}"
+                        )
+
+                except requests.RequestException:
                     retry_count += 1
                     total_retries += 1
 
@@ -294,21 +313,10 @@ def handle_request(
                     else:
                         break
 
-                else:
-                    raise RuntimeError(
-                        f"handle request error: {data.reply_code}"
-                    )
+        if not limited or attempt == MAX_RETRIES:
+            break
 
-            except requests.RequestException:
-                retry_count += 1
-                total_retries += 1
-
-                if retry_count <= 3:
-                    sleep_until(2, deadline)
-
-                    continue
-
-                else:
-                    break
+        pending = limited
+        sleep_until(min(min(waits), MAX_WAIT), deadline)
 
     raise RuntimeError("all keys failed")
