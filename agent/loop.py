@@ -234,7 +234,10 @@ def run_agent(
                     final = res.final_ans
                     observation = res.final_ans
                 else:
-                    observation = problem
+                    observation = (
+                        problem if note is None
+                        else note + '\n' + problem
+                    )
             else:
                 observation = format_observation(res, exec_timeout)
 
