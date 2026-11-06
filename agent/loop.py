@@ -62,7 +62,11 @@ class RunResult:
 
 
 def make_generate(
-    model_name: str, provider_url: str, deadline: float | None = None
+    model_name: str,
+    provider_url: str,
+    deadline: float | None = None,
+    reply_tokens: int = 400,
+    request_timeout: float = 60,
 ) -> Callable[[Messages, int], tuple[RequestData, int]]:
     """Return generate(messages, max_tokens) bound to one model/provider.
 
@@ -71,6 +75,8 @@ def make_generate(
         provider_url: URL of the provider serving the model.
         deadline: A time.monotonic() timestamp after which no request is
             sent, or None for no deadline.
+        reply_tokens: Maximum tokens of each reply.
+        request_timeout: Seconds to wait for each response.
 
     Returns:
         A function returning the LLM response data and the retry count.
@@ -85,23 +91,23 @@ def make_generate(
     def generate(
         messages: Messages, max_tokens: int
     ) -> tuple[RequestData, int]:
-        """Send messages to the LLM, capping the output at 400 tokens.
+        """Send messages to the LLM, capping the output at reply_tokens.
 
         Args:
             messages: Conversation history sent to the model.
-            max_tokens: Requested output budget (capped at 400).
+            max_tokens: Requested output budget (capped at reply_tokens).
 
         Returns:
             The response data and the number of retries needed.
 
         Raises:
-            RuntimeError: If the deadline passed, if every API key fails or
+            RequestFailed: If the deadline passed, if every API key fails or
                 if the provider returns an unexpected error.
         """
 
         return handle_request(
-            model_data, messages, 60, max_tokens=min(max_tokens, 400),
-            deadline=deadline)
+            model_data, messages, request_timeout,
+            max_tokens=min(max_tokens, reply_tokens), deadline=deadline)
     return generate
 
 
