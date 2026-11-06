@@ -190,7 +190,7 @@ def run_agent(
             request_time_ms=data.response_time_in_ms,
             llm_output=data.text,
             sandbox_input=code or "",
-            sandbox_output=observation,
+            sandbox_output="" if code is None else observation,
             retries=retries,
             api_url=api_url,
             model_name=model_name
