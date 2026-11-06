@@ -202,6 +202,8 @@ def run_agent(
             error = str(e)
             break
         reply = cut_after_first_block(data.text)
+        if not reply.strip():
+            reply = "(empty reply)"
         total_in += data.input_tokens
         total_out += data.output_tokens
         messages.append({"role": "assistant", "content": reply})
