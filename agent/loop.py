@@ -25,6 +25,22 @@ CONFIG_PATH: str = str(
     Path(__file__).resolve().parent.parent / "models_config.json"
 )
 Messages = list[dict[str, str]]
+OLD_OBSERVATION_LIMIT: int = 600
+
+
+def compact_history(messages: Messages) -> None:
+    """Shorten every observation of the history except the last message.
+
+    Args:
+        messages: Conversation history, changed in place.
+    """
+
+    for msg in messages[2:-1]:
+        content: str = msg["content"]
+        if (msg["role"] == "user" and content.startswith("Observation:")
+                and len(content) > OLD_OBSERVATION_LIMIT):
+            msg["content"] = (content[:OLD_OBSERVATION_LIMIT]
+                              + "\n[old observation cut]")
 
 
 @dataclass
@@ -162,6 +178,7 @@ def run_agent(
         if total_in + next_in > max_input_tokens - INPUT_TOKEN_RESERVE:
             error = "max_input_tokens"
             break
+        compact_history(messages)
         try:
             data, retries = generate(messages, max_output_tokens - total_out)
         except RequestFailed as e:
