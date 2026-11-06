@@ -202,9 +202,15 @@ differently because model output is not deterministic.
   free quota on our key), `ministral-3b-latest` (loops on failed edits, 2/3,
   one invalid patch), `codestral-latest` (hits the input token cap on the
   hardest task).
-- **MBPP**: the agent passed 7/10 (and 18/20, 5/5 earlier). Every failure
-  analysed comes from the dataset's hidden tests or from the model's output,
-  not from the agent code (section 7).
+- **MBPP**: 37 of 40 on the two final series of 20 tasks (section 7), above the
+  exam threshold of 4/5. Of the 8 failures analysed, 4 come from hidden tests
+  that contradict or are ambiguous with the statement (137, 452, 461, 229),
+  2 from the model's behaviour (160, 260), and 2 were agent bugs that these
+  runs revealed and that are fixed (286, 393).
+- **Exam pool (SWE-bench)**: with the final agent, `ministral-8b-latest` passes
+  5 of the 6 tasks of the pool (section 8), above the threshold of 2/3.
+  sympy-14711 fails because of the model's reasoning, and scikit-learn-13439
+  passes on its last allowed iteration, so it is fragile.
 
 ## 7. MBPP check (moulinette `run-agent`)
 
