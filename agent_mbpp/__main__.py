@@ -8,6 +8,7 @@ sandbox's `code` variable is submitted if it holds a compilable function.
 Exits with code 1 on a setup error or SIGTERM, and 130 on Ctrl+C.
 """
 
+import ast
 import sys
 import time
 import signal
@@ -32,6 +33,27 @@ DEADLINE_SECONDS = 100
 SHUTDOWN_MARGIN_SECONDS = 10
 
 
+def defines_function(source: str) -> bool:
+    """Check that Python source defines a function or a lambda.
+
+    Args:
+        source: Python source code.
+
+    Returns:
+        True if the source parses and contains a def, an async def or a
+        lambda, else False.
+    """
+
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return False
+    return any(
+        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda))
+        for node in ast.walk(tree)
+    )
+
+
 def fetch_code(sandbox: Sandbox) -> str:
     """Get the `code` variable of the sandbox as a fallback answer.
 
@@ -39,16 +61,13 @@ def fetch_code(sandbox: Sandbox) -> str:
         sandbox: Sandbox of the finished run.
 
     Returns:
-        The source in `code` if it compiles and defines a function, else "".
+        The source in `code` if it compiles and defines a function or a
+        lambda, else "".
     """
 
     res = sandbox.run_exec("print(code)")
     text: str = res.output.strip()
-    if res.error or res.truncated or "def " not in text:
-        return ""
-    try:
-        compile(text, "<fallback>", "exec")
-    except (SyntaxError, ValueError):
+    if res.error or res.truncated or not defines_function(text):
         return ""
     return text
 
@@ -69,11 +88,10 @@ def check_answer(answer: str) -> str | None:
         return ("final_answer was not accepted: it is not valid Python "
                 "source. Pass the full code as a string, e.g. "
                 "final_answer(code).")
-    if "def " not in answer:
+    if not defines_function(answer):
         return ("final_answer was not accepted: it defines no function. "
                 "Pass the full code as a string, e.g. final_answer(code).")
     return None
-
 
 if __name__ == "__main__":
     now: float = time.monotonic()
