@@ -19,8 +19,7 @@ from agent.loop import RunResult, make_generate, run_agent
 from agent_mbpp.mcp_setup import connect_mbpp_tools
 from agent_mbpp.prompt import build_prompt, build_system_prompt
 from common.models_public import MBPPTaskInput
-from common import json_loader, setup_agent_parser
-from common import SolutionOutput
+from common import json_loader, setup_agent_parser, SolutionOutput, StepMetrics
 from sandbox.config import get_default_config
 from sandbox.sandbox import Sandbox
 
@@ -84,6 +83,7 @@ if __name__ == "__main__":
     try:
         system_prompt: str = build_system_prompt(sandbox.get_manual(client))
         start: float = time.monotonic()
+        steps: list[StepMetrics] = []
         try:
             result: RunResult = run_agent(
                 task=build_prompt(task),
@@ -97,10 +97,11 @@ if __name__ == "__main__":
                 end_time=end_time,
                 exec_timeout=sandbox.config.max_execution_time_seconds,
                 api_url=args.provider_url,
-                model_name=args.model_name
+                model_name=args.model_name,
+                steps=steps,
             )
         except Exception as e:
-            result = RunResult(None, [], f"crash: {e}")
+            result = RunResult(None, steps, f"crash: {e}")
         answer: str = result.answer or fetch_code(sandbox)
         steps = result.steps
         solution = SolutionOutput(

@@ -92,6 +92,7 @@ def run_agent(
     api_url: str,
     model_name: str,
     end_time: float | None = None,
+    steps: list[StepMetrics] | None = None,
 ) -> RunResult:
     """Run the Thought -> Code -> Observation loop until an answer or a limit.
 
@@ -119,6 +120,9 @@ def run_agent(
         model_name: Model name recorded in each step's metrics.
         end_time: A time.monotonic() timestamp that caps each code run, or
             None to use only the sandbox's own timeout.
+        steps: List that receives each step as it is recorded, so the caller
+            keeps the steps if this function raises. A new list is used if
+            None.
 
     Returns:
         A RunResult with the answer and the steps. Without an answer, error is
@@ -130,7 +134,8 @@ def run_agent(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": task},
     ]
-    steps: list[StepMetrics] = []
+    if steps is None:
+        steps = []
     error: str | None = "max_iterations"
     total_in = 0
     total_out = 0
