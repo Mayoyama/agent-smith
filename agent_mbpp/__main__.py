@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     try:
         system_prompt: str = build_system_prompt(sandbox.get_manual(client))
-        start: float = time.monotonic()
+        start: float = now
         steps: list[StepMetrics] = []
         try:
             result: RunResult = run_agent(
