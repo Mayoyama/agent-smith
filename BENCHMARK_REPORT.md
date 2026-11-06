@@ -247,7 +247,8 @@ three and a second pass over the whole pool with the final agent. Model:
 | scikit-learn-13439 | PASS | 11 | 45,858 | 592 | 31.8 |
 
 With the three ministral-8b rows of section 2 (sympy-13480, xarray-4629,
-sympy-14711), the model passed the 6 tasks of the pool with that agent.
+sympy-14711), the model passed the 6 tasks of the pool with that agent. The
+backing files are `bench/ministral-8b-latest__<task>.json`.
 
 **8.2 Second pass with the final agent and prompt (`run-agent 900`)**
 
@@ -260,7 +261,8 @@ sympy-14711), the model passed the 6 tasks of the pool with that agent.
 | scikit-learn-13439 | PASS | 30 (limit reached) |
 | sympy-14711 | FAIL | 30 |
 
-5 of 6 pass, above the exam threshold of 2 of 3.
+5 of 6 pass, above the exam threshold of 2 of 3. The backing files are
+`bench/final/ministral-8b-latest__<task>.json`.
 
 Notes
 - scikit-learn-13439 passes on its last allowed iteration: it is fragile.
