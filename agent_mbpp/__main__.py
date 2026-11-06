@@ -110,7 +110,8 @@ if __name__ == "__main__":
             success=result.answer is not None,
             solution=answer,
             iterations=len(steps),
-            total_requests=sum(1 + s.retries for s in steps),
+            total_requests=(sum(1 + s.retries for s in steps)
+                            + result.failed_requests),
             total_input_tokens=sum(s.input_tokens for s in steps),
             total_output_tokens=sum(s.output_tokens for s in steps),
             total_time_seconds=time.monotonic() - start,

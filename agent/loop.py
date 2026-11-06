@@ -17,7 +17,7 @@ from agent.observation import (
 from common import StepMetrics
 from llms.model_loader import validate_llm_providers
 from llms.models import RequestData
-from llms.request_handler import handle_request
+from llms.request_handler import RequestFailed, handle_request
 from sandbox.sandbox import Sandbox
 
 INPUT_TOKEN_RESERVE: int = 100
@@ -35,11 +35,14 @@ class RunResult:
         answer: Final answer produced by the agent, or None if it failed.
         steps: Metrics recorded for each executed step.
         error: Reason the run stopped without an answer, or None.
+        failed_requests: Requests sent by a step that failed, so that no step
+            was recorded for them.
     """
 
     answer: str | None
     steps: list[StepMetrics]
     error: str | None
+    failed_requests: int = 0
 
 
 def make_generate(
@@ -147,6 +150,7 @@ def run_agent(
     total_in = 0
     total_out = 0
     next_in = 0
+    failed_requests: int = 0
     start = time.monotonic()
     for step in range(1, max_iterations + 1):
         if time.monotonic() - start > max_time_sec:
@@ -160,6 +164,10 @@ def run_agent(
             break
         try:
             data, retries = generate(messages, max_output_tokens - total_out)
+        except RequestFailed as e:
+            error = str(e)
+            failed_requests = e.retries
+            break
         except Exception as e:
             error = str(e)
             break
@@ -210,4 +218,4 @@ def run_agent(
         )
         next_in = (data.input_tokens + data.output_tokens
                    + len(observation) // 3 + 50)
-    return RunResult(None, steps, error)
+    return RunResult(None, steps, error, failed_requests)

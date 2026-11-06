@@ -11,6 +11,18 @@ MAX_WAIT: float = 60
 MAX_RETRIES: int = 3
 
 
+class RequestFailed(RuntimeError):
+    """A request that failed for good, with the requests it used.
+
+    Attributes:
+        retries: Number of failed requests sent before giving up.
+    """
+
+    def __init__(self, message: str, retries: int) -> None:
+        super().__init__(message)
+        self.retries: int = retries
+
+
 def get_retry_after_value(reply: requests.Response) -> float | None:
     """Get how long a rate-limited provider asks the client to wait.
 
@@ -238,8 +250,9 @@ def handle_request(
         The successful result and the total number of retries.
 
     Raises:
-        RuntimeError: If the deadline passed ("max_time"), if the API answers
-            with any other error code, or if every key failed.
+        RequestFailed: If the deadline passed ("max_time"), if the API answers
+            with any other error code, or if every key failed. Its retries
+            attribute is the number of requests sent without success.
     """
 
     total_retries: int = 0
@@ -256,7 +269,7 @@ def handle_request(
                 left: float = time_left(deadline)
 
                 if left <= 0:
-                    raise RuntimeError("max_time")
+                    raise RequestFailed("max_time", total_retries)
 
                 try:
                     data = send_request(
@@ -297,8 +310,9 @@ def handle_request(
                             break
 
                     else:
-                        raise RuntimeError(
-                            f"handle request error: {data.reply_code}"
+                        raise RequestFailed(
+                            f"handle request error: {data.reply_code}",
+                            total_retries + 1,
                         )
 
                 except requests.RequestException:
@@ -319,4 +333,4 @@ def handle_request(
         pending = limited
         sleep_until(min(min(waits), MAX_WAIT), deadline)
 
-    raise RuntimeError("all keys failed")
+    raise RequestFailed("all keys failed", total_retries)
