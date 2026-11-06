@@ -134,12 +134,14 @@ def run_agent(
     run in the sandbox and the observation is sent back as the next user
     message. A reply without code is kept in the history cut to
     NO_CODE_REPLY_LIMIT characters, so that it does not use the input budget
-    at every later step. The loop stops on final_answer, on a request error
-    or when a limit is reached. Before each step, the next input size is
-    estimated from the last input, the last reply and the last observation,
-    and the loop stops if the total would come within INPUT_TOKEN_RESERVE
-    tokens of max_input_tokens. With end_time, each code run gets at most the
-    time left before it, and at least 1 second.
+    at every later step. Whether such a reply ends in an unclosed code block
+    is checked on the full reply, before it is cut. The loop stops on
+    final_answer, on a request error or when a limit is reached. Before each
+    step, the next input size is estimated from the last input, the last
+    reply and the last observation, and the loop stops if the total would
+    come within INPUT_TOKEN_RESERVE tokens of max_input_tokens. With
+    end_time, each code run gets at most the time left before it, and at
+    least 1 second.
 
     Args:
         task: Task given to the agent as the first user message.
@@ -213,6 +215,7 @@ def run_agent(
 
         code = extract_code(reply)
         note = get_conversion_note(reply)
+        unclosed = code is None and has_unclosed_block(reply)
         out_tokens = data.output_tokens
         if code is None and len(reply) > NO_CODE_REPLY_LIMIT:
             reply = reply[:NO_CODE_REPLY_LIMIT] + "\n[reply cut]"
@@ -220,7 +223,7 @@ def run_agent(
             out_tokens = len(reply) // 3
         final: str | None = None
         if code is None:
-            if has_unclosed_block(reply):
+            if unclosed:
                 observation = cut_off_observation()
             else:
                 observation = no_code_observation()
