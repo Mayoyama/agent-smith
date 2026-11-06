@@ -3,11 +3,17 @@
 import time
 from typing import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
-from agent.extract import (cut_after_first_block, extract_code,
-                           get_conversion_note, has_unclosed_block)
-from agent.observation import (format_observation, no_code_observation,
-                               cut_off_observation)
+from agent.extract import (
+    cut_after_first_block,
+    extract_code,
+    get_conversion_note,
+    has_unclosed_block
+)
+from agent.observation import (
+    format_observation, no_code_observation, cut_off_observation
+)
 from common import StepMetrics
 from llms.model_loader import validate_llm_providers
 from llms.models import RequestData
@@ -15,6 +21,9 @@ from llms.request_handler import handle_request
 from sandbox.sandbox import Sandbox
 
 INPUT_TOKEN_RESERVE: int = 100
+CONFIG_PATH: str = str(
+    Path(__file__).resolve().parent.parent / "models_config.json"
+)
 Messages = list[dict[str, str]]
 
 
@@ -52,9 +61,7 @@ def make_generate(
         RuntimeError: If models_config.json can't be loaded.
     """
 
-    model_data = validate_llm_providers(
-        "models_config.json", model_name, provider_url
-    )
+    model_data = validate_llm_providers(CONFIG_PATH, model_name, provider_url)
 
     def generate(
         messages: Messages, max_tokens: int
