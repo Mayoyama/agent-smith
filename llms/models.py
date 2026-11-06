@@ -97,6 +97,8 @@ class RequestData(BaseModel):
             could not be parsed.
         retry_after: Seconds the provider asked to wait before retrying, or
             None if it gave no time or the request succeeded.
+        finish_reason: Why the model stopped (e.g. "stop" or "length"), or an
+            empty string if the request failed or the provider gave none.
     """
 
     text: str
@@ -105,3 +107,4 @@ class RequestData(BaseModel):
     response_time_in_ms: float = Field(ge=0.0)
     reply_code: int = Field(ge=0)
     retry_after: float | None = None
+    finish_reason: str = ""

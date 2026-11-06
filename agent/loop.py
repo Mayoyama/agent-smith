@@ -1,5 +1,6 @@
 """Agent loop: Thought -> Code -> Observation."""
 
+import sys
 import time
 from typing import Callable
 from dataclasses import dataclass
@@ -201,6 +202,8 @@ def run_agent(
         except Exception as e:
             error = str(e)
             break
+        print(f"step {step}: finish_reason={data.finish_reason or '?'}",
+              file=sys.stderr)
         reply = cut_after_first_block(data.text)
         if not reply.strip():
             reply = "(empty reply)"

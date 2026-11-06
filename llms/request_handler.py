@@ -145,8 +145,8 @@ def send_request(
         max_tokens: Maximum tokens the model may generate or None for no limit.
 
     Returns:
-        The reply text, token counts, request time, status code and, for a
-        failed request, the requested wait.
+        The reply text, token counts, finish reason, request time, status code
+        and, for a failed request, the requested wait.
 
     Raises:
         requests.RequestException: If the request can't be completed, e.g.
@@ -174,7 +174,9 @@ def send_request(
     if reply.status_code == 200:
         try:
             json_data = reply.json()
-            reply_text = json_data["choices"][0]["message"].get("content")
+            choice = json_data["choices"][0]
+            reply_text = choice["message"].get("content")
+            finish_reason = choice.get("finish_reason") or ""
             input_tokens = json_data["usage"]["prompt_tokens"]
             output_tokens = json_data["usage"]["completion_tokens"]
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
@@ -201,6 +203,7 @@ def send_request(
             output_tokens=output_tokens,
             response_time_in_ms=request_time_in_ms,
             reply_code=reply_code,
+            finish_reason=str(finish_reason),
         )
 
     else:
