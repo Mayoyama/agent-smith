@@ -239,7 +239,10 @@ def run_agent(
                         else note + '\n' + problem
                     )
             else:
-                observation = format_observation(res, exec_timeout)
+                limit: int = exec_timeout
+                if exec_limit is not None:
+                    limit = int(min(exec_timeout, exec_limit))
+                observation = format_observation(res, limit)
 
                 if note is not None:
                     observation = note + '\n' + observation
