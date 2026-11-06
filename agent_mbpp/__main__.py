@@ -118,7 +118,9 @@ if __name__ == "__main__":
             system_prompt=system_prompt,
             error=result.error,
         )
-        Path(args.output).write_text(solution.model_dump_json(indent=2))
+        output_path: Path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(solution.model_dump_json(indent=2))
     finally:
         sandbox.shutdown()
         client.close()
