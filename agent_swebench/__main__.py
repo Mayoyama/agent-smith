@@ -100,15 +100,15 @@ if __name__ == "__main__":
             answer = result.answer
         else:
             answer = fetch_patch(client)
-            write_solution(
-                task.instance_id,
-                "swebench",
-                answer,
-                result,
-                start,
-                system_prompt,
-                args.output
-            )
+        write_solution(
+            task.instance_id,
+            "swebench",
+            answer,
+            result,
+            start,
+            system_prompt,
+            args.output
+        )
     finally:
         sandbox.shutdown()
         client.close()
