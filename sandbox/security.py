@@ -123,7 +123,7 @@ class Security:
             attribute = getattr(module, item, None)
 
             if isinstance(attribute, ModuleType):
-                full_name = f"{name}.{item}"
+                full_name = attribute.__name__
 
                 if not self.is_allowed(full_name):
                     raise ImportError(f"import '{full_name}' not allowed or "
