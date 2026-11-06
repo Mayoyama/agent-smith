@@ -26,6 +26,7 @@ CONFIG_PATH: str = str(
 )
 Messages = list[dict[str, str]]
 OLD_OBSERVATION_LIMIT: int = 600
+NO_CODE_REPLY_LIMIT: int = 150
 
 
 def compact_history(messages: Messages) -> None:
@@ -110,7 +111,6 @@ def make_generate(
             max_tokens=min(max_tokens, reply_tokens), deadline=deadline)
     return generate
 
-
 def run_agent(
     task: str,
     system_prompt: str,
@@ -131,12 +131,14 @@ def run_agent(
 
     Each reply is cut after its first code block or tool call, its code is
     run in the sandbox and the observation is sent back as the next user
-    message. The loop stops on final_answer, on a request error or when a
-    limit is reached. Before each step, the next input size is estimated
-    from the last input, the last reply and the last observation, and the
-    loop stops if the total would come within INPUT_TOKEN_RESERVE tokens of
-    max_input_tokens. With end_time, each code run gets at most the time left
-    before it, and at least 1 second.
+    message. A reply without code is kept in the history cut to
+    NO_CODE_REPLY_LIMIT characters, so that it does not use the input budget
+    at every later step. The loop stops on final_answer, on a request error
+    or when a limit is reached. Before each step, the next input size is
+    estimated from the last input, the last reply and the last observation,
+    and the loop stops if the total would come within INPUT_TOKEN_RESERVE
+    tokens of max_input_tokens. With end_time, each code run gets at most the
+    time left before it, and at least 1 second.
 
     Args:
         task: Task given to the agent as the first user message.
@@ -206,6 +208,11 @@ def run_agent(
 
         code = extract_code(reply)
         note = get_conversion_note(reply)
+        out_tokens = data.output_tokens
+        if code is None and len(reply) > NO_CODE_REPLY_LIMIT:
+            reply = reply[:NO_CODE_REPLY_LIMIT] + "\n[reply cut]"
+            messages[-1]["content"] = reply
+            out_tokens = len(reply) // 3
         final: str | None = None
         if code is None:
             if has_unclosed_block(reply):
@@ -250,6 +257,6 @@ def run_agent(
         messages.append(
             {"role": "user", "content": "Observation:\n" + observation}
         )
-        next_in = (data.input_tokens + data.output_tokens
+        next_in = (data.input_tokens + out_tokens
                    + len(observation) // 3 + 50)
     return RunResult(None, steps, error, failed_requests)
