@@ -159,8 +159,7 @@ whether the summary was truncated in the tool output.
 ## 5. Ablation study
 
 Two before/after comparisons of a change to the agent. 5.1 is measured on
-existing traces. 5.2 is a re-run with the same task and the same model, and
-its numbers are still to be filled in.
+existing traces. 5.2 is a re-run with the same task and the same model.
 
 ### 5.1 The `get_patch` fallback (measured on existing traces)
 
@@ -187,7 +186,7 @@ Limit: this is a counterfactual on fixed traces. A real re-run could behave
 differently because model output is not deterministic. This is why 5.2 re-runs
 the agent.
 
-### 5.2 The `search_code` rule in the prompt (re-run, to be filled)
+### 5.2 The `search_code` rule in the prompt (re-run)
 
 **Change**: remove from the SWE prompt (`agent_swebench/prompt.py`) the rule
 saying that `file_pattern` of `search_code` is a file name pattern such as
@@ -206,14 +205,25 @@ time.
 
 | Condition | Run | Pass | Iterations | "no lines matched" | Time (s) |
 |---|---|---|---|---|---|
-| With the rule (current prompt) | 1 | — | — | — | — |
-| With the rule (current prompt) | 2 | — | — | — | — |
-| With the rule (current prompt) | 3 | — | — | — | — |
-| Without the rule | 1 | — | — | — | — |
-| Without the rule | 2 | — | — | — | — |
-| Without the rule | 3 | — | — | — | — |
+| With the rule (current prompt) | 1 | PASS | 16 | 0 | 74 |
+| With the rule (current prompt) | 2 | PASS | 21 | 0 | 57 |
+| With the rule (current prompt) | 3 | PASS | 12 | 0 | 165 |
+| Without the rule | 1 | PASS | 19 | 2 | 113 |
+| Without the rule | 2 | PASS | 15 | 0 | 73 |
+| Without the rule | 3 | PASS | 12 | 0 | 24 |
 
-Result: —
+The backing files are `bench/ablation/gemini-3.1-flash-lite__scikit-learn-13439__<with|without>-rule-<n>.json`.
+
+Result: with `gemini-3.1-flash-lite`, the rule makes no measurable
+difference on this task. All 6 runs pass. The mean is 16.3 iterations with the
+rule and 15.3 without, and 99 s with the rule and 70 s without; with 3 runs
+per condition and iteration counts from 12 to 21 in both, these gaps are
+within the spread between runs. The false "no lines matched" that motivated
+the rule appears only in one run without it (2 observations), and we did not
+check whether those two came from a path passed as `file_pattern`. The effect
+seen with `ministral-8b-latest` (empty solution after 12 such answers) did
+not show up with Gemini. The rule stays in the prompt, since it costs 4 lines
+and targets a failure that weaker models do show.
 
 ## 6. Conclusions
 
@@ -247,6 +257,10 @@ issue asks.
 **The `get_patch` fallback matters**: 13 runs pass with it, 11 without
 (section 5.1). It rescues 2 of 15 runs (`ministral-14b-latest` on
 sympy-14711, `ministral-3b-latest` on sympy-13480).
+
+**The `search_code` prompt rule did not matter for Gemini**: scikit-learn-13439
+passes 3 times out of 3 with it and 3 times out of 3 without it, in 12 to 21
+iterations (section 5.2).
 
 **MBPP: selected model `qwen/qwen3.8-27b` (Groq).** 15/15 on the three series
 of 5 with the code of 7 November, and 37/40 on the two earlier series of 20,
