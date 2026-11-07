@@ -6,10 +6,11 @@
 
 **Agent**: `agent_swebench` (Thought → Code → Observation loop, MCP tools
 running in the task's Docker container). Same prompt, tools and limits for
-every run: 30 iterations, 300,000 input tokens, 10,000 output tokens, 900 s,
-400 tokens max per model reply. The 15 runs of section 2 were produced before
-the multi-format tool-call extraction (`agent/extract.py`) was added to the
-agent, and were not re-run with it.
+every run of sections 2 to 5: 30 iterations, 300,000 input tokens, 10,000
+output tokens, 900 s, 400 tokens max per model reply. The 15 runs of section 2
+were produced before the multi-format tool-call extraction (`agent/extract.py`)
+was added to the agent, and were not re-run with it. Sections 7 and 8 say
+which version of the code each run used.
 
 **Providers / models**
 
@@ -33,7 +34,7 @@ Tried and excluded:
   Its file is not kept.
 - `magistral-*`: not tried (reasoning models, same risk as `mistral-large-4`).
 
-**Tasks** (SWE-bench Verified)
+**Tasks of sections 2 to 5** (SWE-bench Verified)
 
 | Task | Repository | Bug |
 |---|---|---|
@@ -43,13 +44,13 @@ Tried and excluded:
 
 Selection rationale: these are the three tasks the subject (section V.4)
 recommends for initial testing, and all three belong to the moulinette's exam
-pool (`EXAM_POOL`, 6 tasks). Using the same three tasks for every model keeps
-the comparison fair. They are not equally easy for our agent: sympy-14711
-takes 20 to 30 iterations, where the other two take 4 to 9 (except
-`ministral-3b-latest` on sympy-13480, 30 iterations), see section 2.
+pool (`EXAM_POOL`, 6 tasks, see section 8). Using the same three tasks for
+every model keeps the comparison fair. They are not equally easy for our
+agent: sympy-14711 takes 20 to 30 iterations, where the other two take 4 to 9
+(except `ministral-3b-latest` on sympy-13480, 30 iterations), see section 2.
 
-**Validation**: every solution file is checked with `moulinette_eval validate
-swebench` (correctness + metrics). Pass/Fail below is the moulinette result,
+**Validation**: every solution file is checked with `moulinette_eval validate`
+(correctness + metrics). Pass/Fail in this report is the moulinette result,
 not the agent's own `success` field.
 
 ## 2. Results
@@ -72,10 +73,10 @@ not the agent's own `success` field.
 | gemini-3.1-flash-lite | xarray-4629 | PASS | 9 | 36,953 | 1,180 | 37.0 |
 | gemini-3.1-flash-lite | sympy-14711 | PASS | 21 | 104,308 | 2,621 | 44.2 |
 
-Every row was validated with the moulinette on its own solution file.
-
 Pass count: codestral 2/3, ministral-14b 3/3, ministral-8b 3/3, ministral-3b
-2/3, gemini-3.1-flash-lite 3/3 (13 of 15 runs).
+2/3, gemini-3.1-flash-lite 3/3 (13 of 15 runs). Every row was validated with
+the moulinette on its own solution file. The backing files are
+`bench/<model>__<task>.json`.
 
 Notes
 - Two runs have `success: false` (the agent never called `final_answer`) and
@@ -157,16 +158,21 @@ whether the summary was truncated in the tool output.
 
 ## 5. Ablation study
 
-**Change**: the `get_patch` fallback. When the loop ends without
-`final_answer`, the agent submits the repository diff instead of an empty
-solution.
+Two before/after comparisons of a change to the agent. 5.1 is measured on
+existing traces. 5.2 is a re-run with the same task and the same model, and
+its numbers are still to be filled in.
+
+### 5.1 The `get_patch` fallback (measured on existing traces)
+
+**Change**: when the loop ends without `final_answer`, the agent submits the
+repository diff (`get_patch`) instead of an empty solution.
 
 **Method**: the fallback only acts after the loop has ended, so removing it
 changes nothing in a run that ends with `final_answer`. For a run that ends
 without one, the solution becomes empty. We therefore took the existing
-traces and blanked the `solution` field, then validated the result with the
-moulinette. We did not re-run the agent, so the comparison uses identical
-traces.
+traces of section 2 and blanked the `solution` field, then validated the
+result with the moulinette. We did not re-run the agent, so the comparison
+uses identical traces.
 
 | Run | With fallback | Without fallback |
 |---|---|---|
@@ -178,48 +184,95 @@ are unchanged: 11 end with `final_answer`, and 2 (codestral on sympy-14711,
 ministral-3b on sympy-14711) fail either way.
 
 Limit: this is a counterfactual on fixed traces. A real re-run could behave
-differently because model output is not deterministic.
+differently because model output is not deterministic. This is why 5.2 re-runs
+the agent.
+
+### 5.2 The `search_code` rule in the prompt (re-run, to be filled)
+
+**Change**: remove from the SWE prompt (`agent_swebench/prompt.py`) the rule
+saying that `file_pattern` of `search_code` is a file name pattern such as
+`*.py`, never a path.
+
+**Why this change**: before the rule existed, `ministral-8b-latest` failed
+scikit-learn-13439 with an empty solution. It passed a path as `file_pattern`
+12 times in that run, and each time got a false "no lines matched" (see 8.2).
+
+**Protocol**: same task (scikit-learn-13439), same model
+(`gemini-3.1-flash-lite`), same code and limits, 3 runs per condition, run one
+after the other because of the Gemini rate limit. The only difference between
+the two conditions is the rule. Measured on each solution file: moulinette
+result, iterations, number of observations containing "no lines matched",
+time.
+
+| Condition | Run | Pass | Iterations | "no lines matched" | Time (s) |
+|---|---|---|---|---|---|
+| With the rule (current prompt) | 1 | — | — | — | — |
+| With the rule (current prompt) | 2 | — | — | — | — |
+| With the rule (current prompt) | 3 | — | — | — | — |
+| Without the rule | 1 | — | — | — | — |
+| Without the rule | 2 | — | — | — | — |
+| Without the rule | 3 | — | — | — | — |
+
+Result: —
 
 ## 6. Conclusions
 
-- **Best candidate: `ministral-8b-latest`.** 3/3 on the benchmark tasks, with
-  the fewest iterations and tokens on sympy-14711 among the models that pass
-  it (20 iterations, 110,927 input tokens). It submits as soon as its tests
-  pass (0 extra iterations on all 3 tasks, section 4.2) and never needs the
-  `get_patch` fallback. Caveat: its sympy-14711 patch is broader than the
-  issue asks (it returns the vector for any `int`/`float`, not only `0`).
-- **`gemini-3.1-flash-lite`**: 3/3, but slower per request (2.7 s vs about
-  1 s), limited to about 15 requests per minute on the free tier, and 2 extra
-  iterations before submitting on sympy-13480.
-- **`ministral-14b-latest`**: 3/3, but its sympy-14711 pass depends on the
-  fallback: its tests only pass at step 30, the last iteration, so it had no
-  step left to submit (sections 4.2 and 5).
-- **The `get_patch` fallback matters**: 13 PASS with it, 11 without
-  (section 5). It rescues 2 of 15 runs (`ministral-14b-latest` on
-  sympy-14711, `ministral-3b-latest` on sympy-13480).
-- **Disregarded**: `mistral-large-4` (reasoning model, incompatible with the
+**SWE-bench: selected model `gemini-3.1-flash-lite`.**
+- 3/3 on the three benchmark tasks (section 2) and 6/6 on the exam pool with
+  the code of 7 November (8.3), against 5/6 for `ministral-8b-latest` (8.2).
+- The slowest task takes 116 s of the 900 s allowed, and no retry was recorded
+  in section 3.
+- Caveats: about 2.7 s per request against about 1 s for the Mistral models,
+  about 15 requests per minute on the free tier (tasks must run one at a
+  time), and two tasks that use many iterations (sympy-14711: 27 of 30,
+  scikit-learn-13439: 20 of 30). All figures are single runs.
+
+**Runner-up: `ministral-8b-latest`.** 3/3 on the benchmark tasks, with the
+fewest iterations and tokens on sympy-14711 among the models that pass it
+(20 iterations, 110,927 input tokens). It submits as soon as its tests pass
+(0 extra iterations on all 3 tasks, section 4.2). It fails sympy-14711 in the
+second pass of 8.2, and its sympy-14711 patch in section 2 is broader than the
+issue asks.
+
+**Other models**
+- `ministral-14b-latest`: 3/3, but its sympy-14711 pass depends on the
+  `get_patch` fallback: its tests only pass at step 30, the last iteration, so
+  it had no step left to submit (sections 4.2 and 5.1).
+- Disregarded: `mistral-large-4` (reasoning model, incompatible with the
   400-token reply cap), `mistral-small-latest` and `mistral-medium-latest` (no
   free quota on our key), `ministral-3b-latest` (loops on failed edits, 2/3,
   one invalid patch), `codestral-latest` (hits the input token cap on the
   hardest task).
-- **MBPP**: 37 of 40 on the two final series of 20 tasks (section 7), above the
-  exam threshold of 4/5. Of the 8 failures analysed, 4 come from hidden tests
-  that contradict or are ambiguous with the statement (137, 452, 461, 229),
-  2 from the model's behaviour (160, 260), and 2 were agent bugs that these
-  runs revealed and that are fixed (286, 393).
-- **Exam pool (SWE-bench)**: with the final agent, `ministral-8b-latest` passes
-  5 of the 6 tasks of the pool (section 8), above the threshold of 2/3.
-  sympy-14711 fails because of the model's reasoning, and scikit-learn-13439
-  passes on its last allowed iteration, so it is fragile.
+
+**The `get_patch` fallback matters**: 13 runs pass with it, 11 without
+(section 5.1). It rescues 2 of 15 runs (`ministral-14b-latest` on
+sympy-14711, `ministral-3b-latest` on sympy-13480).
+
+**MBPP: selected model `qwen/qwen3.8-27b` (Groq).** 15/15 on the three series
+of 5 with the code of 7 November, and 37/40 on the two earlier series of 20,
+all above the exam threshold of 4/5 (section 7). Of the 8 failures analysed in
+the earlier runs, 4 come from hidden tests that contradict or are ambiguous
+with the statement (137, 452, 461, 229), 2 from the model's behaviour (160,
+260), and 2 were agent bugs that these runs revealed and that are fixed (286,
+393).
+
+**Docker cleanup**: no task container was left after the 6 runs of 8.3 or
+after a `kill -9` of the agent (8.4).
+
+**Limits of this report**: every cell is a single run with no variance
+estimate, the SWE-bench model comparison covers three tasks (section 2) and
+the models were not all run on the same version of the code (sections 2, 8.2
+and 8.3).
 
 ## 7. MBPP check (moulinette `run-agent`)
 
 **Method**: `scripts/eval_mbpp.sh N` draws N random tasks (`dump mbpp`, drawn
 with replacement), runs the agent through `moulinette_eval run-agent 120` and
 validates each solution. Model: `qwen/qwen3.8-27b` on Groq. Single runs, no
-variance estimate, one model only (not the five of section 2). The first three
-rows were measured before the fixes of the audit; the rows marked "final" use
-the code of the final branch.
+variance estimate, one model only (not the five of section 2). "Passed" is the
+moulinette's overall result (correctness and metrics). The first three rows
+were measured before the fixes of the audit; the other rows use the code of
+the final branch at the time they were run.
 
 | Run | Passed | Max agent time |
 |---|---|---|
@@ -230,39 +283,57 @@ the code of the final branch.
 | Final, 20 tasks, first series | 19/20 | 97.4 s |
 | Final, 20 tasks, second series | 18/20 | 42.1 s |
 | Final, task 393 three times, after the fix | 3/3 | not recorded |
+| Commit `3c7d559`, 5 tasks (237, 92, 393, 476, 465) | 5/5 | 43.0 s |
+| Commit `3c7d559`, 5 tasks (425, 465, 97, 265, 284) | 5/5 | 30.4 s |
+| Commit `3c7d559`, 5 tasks (88, 444, 446, 463, 389) | 5/5 | 22.0 s |
 
-The exam threshold is 4/5 (80 %). The two final series of 20 tasks give 37/40
-(92.5 %). Their three failures are 286, 393 and 229.
+The exam threshold is 4/5 (80 %). The two earlier final series of 20 tasks
+give 37/40 (92.5 %); their three failures are 286, 393 and 229. The three
+series of 5 on `3c7d559` give 15/15. Of these, only the solution files of the
+last series were kept; the first two were overwritten by the next series, and
+their results are the moulinette outputs.
 
 **Analysis of the failures** (correctness only, the metrics were valid)
-- 137, 452, 461, 229: the hidden test contradicts or is ambiguous with the task
-  statement, so the agent cannot guess it. 137: the test expects
-  `zeros / (n - zeros)`, the statement says "ration of zeroes". 452: it expects
-  `0` where the statement says "else return none". 461: the reference code
-  returns inside the loop, so it only looks at the first character, and the
-  model counts correctly. 229: the reference swaps elements, and the expected
-  result depends on its algorithm.
-- 286: the model wrote prose, then opened a code block that the token limit cut
-  off. The reply was cut to 150 characters before the unclosed block was
+
+Ambiguous tests (137, 452, 461, 229): the hidden test contradicts or is
+ambiguous with the task statement, so the agent cannot guess it.
+- 137: the test expects `zeros / (n - zeros)`, the statement says "ration of
+  zeroes".
+- 452: it expects `0` where the statement says "else return none".
+- 461: the reference code returns inside the loop, so it only looks at the
+  first character, and the model counts correctly.
+- 229: the reference swaps elements, and the expected result depends on its
+  algorithm.
+
+Agent bugs found by these runs and fixed (286, 393):
+- 286: the model wrote prose, then opened a code block that the token limit
+  cut off. The reply was cut to 150 characters before the unclosed block was
   looked for, so the agent answered "no block" instead of "cut off". Fixed by
   checking the full reply first. Not measured again on 286.
 - 393: the model submitted `max_length_list = lambda ...`, which was accepted
   as a final answer although it defines no function the tests could use.
   Fixed: a final answer must define a function or a lambda, and a refused
-  answer is sent back to the model. 393 then passes 3 times out of 3.
-- 160, 260: model failures, no solution. In both the model writes prose
-  without any code block. On 260 the replies are cut by the 400-token cap and
-  the run ends on `max_input_tokens`. On 160 the public test already gives the
-  algorithm, the
+  answer is sent back to the model. 393 passes 3 times out of 3 after the fix,
+  and once more in the series of 7 November.
 
-## 8. Exam pool check (6 tasks, `ministral-8b-latest`)
+Model failures (160, 260):
+- 260: no solution. The model writes prose without any code block, the replies
+  are cut by the 400-token cap and the run ends on `max_input_tokens`.
+- 160: rerun on 7 November with the final code, FAIL, `success: false`, 5
+  iterations. The model reaches code that passes the first public test and
+  fails the second, `find_solution(1, 13, 17) == (4, 1)`: x + 13y = 17 has
+  many integer solutions and the test expects one specific pair, which the
+  model did not return. Two of its five replies used the full 400 tokens
+  (steps 1 and 5). The cause was not investigated further.
+
+## 8. Exam pool check (6 tasks)
 
 The moulinette draws its SWE-bench exam tasks from a fixed pool of 6 tasks
-(`EXAM_POOL`). Section 2 covers three of them. This section adds the other
-three and a second pass over the whole pool with the final agent. Model:
-`ministral-8b-latest` (Mistral). Single runs, no variance estimate.
+(`EXAM_POOL`). Section 2 covers three of them. This section covers the whole
+pool, with two models and two versions of the code. Single runs.
 
-**8.1 Three more tasks (agent of 2 November, before `agent/extract.py`)**
+**8.1 Three more tasks, `ministral-8b-latest` (agent of 2 November, before
+`agent/extract.py`)**
 
 | Task | Pass | Iterations | Input tokens | Output tokens | Time (s) |
 |---|---|---|---|---|---|
@@ -274,7 +345,8 @@ With the three ministral-8b rows of section 2 (sympy-13480, xarray-4629,
 sympy-14711), the model passed the 6 tasks of the pool with that agent. The
 backing files are `bench/ministral-8b-latest__<task>.json`.
 
-**8.2 Second pass with the final agent and prompt (`run-agent 900`)**
+**8.2 Second pass, `ministral-8b-latest`, final agent and prompt of that
+time (`run-agent 900`)**
 
 | Task | Pass | Iterations |
 |---|---|---|
@@ -298,7 +370,52 @@ Notes
   instead of handling `other == 0`. No prompt rule was added for it, since a
   rule written for one task would overfit (V.1.2 of the subject).
 
+**8.3 Pass with `gemini-3.1-flash-lite`, code of 7 November (commit
+`3c7d559`)**
+
+Run with `scripts/eval_swebench.sh` (moulinette `run-agent 900`, then
+`validate`). "Time" is `total_time_seconds` of the solution file.
+
+| Task | Pass | Iterations | Time (s) | Containers left |
+|---|---|---|---|---|
+| xarray-4629 | PASS | 7 | 18 | 0 |
+| sympy-13480 | PASS | 8 | 21 | 0 |
+| sympy-14711 | PASS | 27 | 116 | 0 |
+| django-11066 | PASS | 6 | 28 | 0 |
+| scikit-learn-13439 | PASS | 20 | 99 | 0 |
+| sympy-18189 | PASS | 6 | 38 | 0 |
+
+6 of 6 pass. The whole script took 486 s, validation and container start
+included. The slowest task takes 116 s of the 900 s allowed. Two tasks use
+many of the 30 allowed iterations: sympy-14711 (27) and scikit-learn-13439
+(20). The backing files are `bench/final/gemini-3.1-flash-lite__<task>.json`.
+
+The task container runs with `--network none`, and all 6 tasks pass, so their
+eval scripts need no network.
+
+8.2 and 8.3 are not strictly comparable: they ran on different commits, with
+one run per cell. Gemini passing 6/6 against 5/6 for ministral-8b is an
+indication, not a proof.
+
+**8.4 Container cleanup**
+
+- After each of the 6 runs of 8.3, `docker ps` showed no container of the
+  task image.
+- `kill -9` test: the script was started on sympy-14711, the agent was killed
+  with `pkill -9 -f agent_swebench` 20 s after the task container appeared,
+  and `docker ps -a` was run 8 s later. It listed no container of the task
+  image, running or stopped. One trial.
+
 ## Reproducing
+
+```
+bash scripts/eval_mbpp.sh 5
+bash scripts/eval_swebench.sh
+```
+
+`MODEL` and `URL` select the model and provider for both scripts, and
+`MOUL_DIR` the moulinette folder if it is outside the repository. A single
+SWE-bench run:
 
 ```
 uv run python -m agent_swebench --task-file cache/swebench_task_<id>.json \
