@@ -163,9 +163,11 @@ The full report is in [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md), and the backin
 | Google | `gemini-3.1-flash-lite` | 3/3 | 21 | 2,685 ms |
 
 - 13 of the 15 runs pass. Every model solves sympy-13480 and xarray-4629 with the same fix in 4 to 9 iterations (except `ministral-3b-latest` on sympy-13480), so only sympy-14711 separates them.
-- **Selected model: `ministral-8b-latest`.** It passes all three tasks with the fewest iterations and tokens on sympy-14711 (20 iterations, 110,927 input tokens), submits as soon as its tests pass, and never needs the fallback.
+- **Selected model for SWE-bench: `gemini-3.1-flash-lite`.** It passes the three tasks above and, on the final code, all 6 tasks of the exam pool (slowest task 156 s of the 900 s allowed), against 5 of 6 for `ministral-8b-latest`. It is slower per request (2,685 ms against 857 to 1,349 ms for the Mistral models), and its free tier allows about 15 requests per minute, so its tasks are run one at a time. The runner-up is `ministral-8b-latest`: it passes the three tasks with the fewest iterations and tokens on sympy-14711 (20 iterations, 110,927 input tokens) and submits as soon as its tests pass.
+- **MBPP:** `qwen/qwen3.8-27b` on Groq passes 15 of 15 tasks in three series of 5 on the final code, and 37 of 40 in two earlier series of 20.
 - **Reliability:** 212 requests, no retries and no failed request during the runs. Gemini's free tier allows about 15 requests per minute, so its runs were launched one at a time.
-- **Ablation:** with the `get_patch` fallback removed, the 2 runs that ended without `final_answer` fail, so 11 of 15 runs pass instead of 13.
+- **Ablation:** with the `get_patch` fallback removed, the 2 runs that ended without `final_answer` fail, so 11 of 15 runs pass instead of 13. Removing the `search_code` rule from the prompt changes nothing measurable with Gemini on scikit-learn-13439 (3 of 3 runs pass with and without it).
+- **Docker cleanup:** no container is left after 6 SWE-bench runs, or after the agent is killed with `kill -9` during a run.
 - **Disregarded:** `codestral-latest` (hits the input token cap on sympy-14711), `ministral-3b-latest` (repeats failing edits, one invalid patch), reasoning models such as `mistral-large-4` (their reasoning uses up the 400-token reply cap), and `mistral-small-latest` / `mistral-medium-latest` (no free quota on our key).
 
 [↑ Back to top](#top)

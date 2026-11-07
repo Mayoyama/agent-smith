@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage (from the repo root): bash scripts/eval_mbpp.sh [N] [TASK_ID...]
-# When moulinette is outside the repo: MOUL_DIR=../moulinette bash scripts/eval_swebench.sh
+# When moulinette is outside the repo: MOUL_DIR=../moulinette bash scripts/eval_mbpp.sh
 # Runs N tasks; the given TASK_IDs come first, the rest are random.
 N="${1:-5}"
 shift
