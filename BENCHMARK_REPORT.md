@@ -220,11 +220,11 @@ Result: —
 **SWE-bench: selected model `gemini-3.1-flash-lite`.**
 - 3/3 on the three benchmark tasks (section 2) and 6/6 on the exam pool with
   the code of 7 November (8.3), against 5/6 for `ministral-8b-latest` (8.2).
-- The slowest task takes 116 s of the 900 s allowed, and no retry was recorded
+- The slowest task takes 156 s of the 900 s allowed, and no retry was recorded
   in section 3.
 - Caveats: about 2.7 s per request against about 1 s for the Mistral models,
   about 15 requests per minute on the free tier (tasks must run one at a
-  time), and two tasks that use many iterations (sympy-14711: 27 of 30,
+  time), and two tasks that use many iterations (sympy-14711: 28 of 30,
   scikit-learn-13439: 20 of 30). All figures are single runs.
 
 **Runner-up: `ministral-8b-latest`.** 3/3 on the benchmark tasks, with the
@@ -380,15 +380,19 @@ Run with `scripts/eval_swebench.sh` (moulinette `run-agent 900`, then
 |---|---|---|---|---|
 | xarray-4629 | PASS | 7 | 18 | 0 |
 | sympy-13480 | PASS | 8 | 21 | 0 |
-| sympy-14711 | PASS | 27 | 116 | 0 |
+| sympy-14711 | PASS | 28 | 156 | 0 |
 | django-11066 | PASS | 6 | 28 | 0 |
 | scikit-learn-13439 | PASS | 20 | 99 | 0 |
 | sympy-18189 | PASS | 6 | 38 | 0 |
 
-6 of 6 pass. The whole script took 486 s, validation and container start
-included. The slowest task takes 116 s of the 900 s allowed. Two tasks use
-many of the 30 allowed iterations: sympy-14711 (27) and scikit-learn-13439
-(20). The backing files are `bench/final/gemini-3.1-flash-lite__<task>.json`.
+6 of 6 pass. The first pass over the 6 tasks took 486 s, validation and
+container start included. The solution file of sympy-14711 from that pass
+(27 iterations, 116 s, PASS) was deleted by the `kill -9` test of 8.4, which
+restarts the same task, so sympy-14711 was run again alone with the same
+script. The table shows that second run. The slowest task takes 156 s of the
+900 s allowed. Two tasks use many of the 30 allowed iterations: sympy-14711
+(28) and scikit-learn-13439 (20). The backing files are
+`bench/final/gemini-3.1-flash-lite__<task>.json`.
 
 The task container runs with `--network none`, and all 6 tasks pass, so their
 eval scripts need no network.
