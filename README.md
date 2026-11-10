@@ -35,15 +35,68 @@ The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. With
 
 Run an agent with `uv run python -m agent_mbpp --task-file <task.json> --output <solution.json> --model-name <model> --provider-url <url>` (`agent_swebench` takes the same options). The provider is found in `models_config.json` by matching `--provider-url`, and its API keys are read from the environment (a `.env` file is loaded first) as `<key_prefix>` (e.g. `MISTRAL_API_KEY`), then `<key_prefix>_1`, `<key_prefix>_2`, and so on. The agent prints nothing on success: it writes a `SolutionOutput` JSON to `--output`. For SWE-bench, Docker must be running, and pulling the task's image beforehand (`docker pull <docker_image>`) avoids a slow first run.
  
-The moulinette (`moulinette_eval`) needs Python 3.12 while the agents run on Python 3.10, so its steps are run one by one with `uv run --python 3.12` (`quickstart.sh` calls a plain `uv run` and fails on Python 3.10). For example, for MBPP (replace `mbpp` with `swebench` for SWE-bench, and add `--task-id <id>` to the dump to pick a task):
- 
-```
+The moulinette (`moulinette_eval`) needs Python 3.12 while the agents run on Python 3.10, so its steps are run one by one with `uv run --python 3.12` (`quickstart.sh` calls a plain `uv run` and fails on Python 3.10). For example, for MBPP (replace `mbpp` with `swebench` for SWE-bench, and add `--task-id <id>` to the dump to pick a task).
+
+### MBPP pipeline
+
+```bash
 cd moulinette
 PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval dump mbpp --output ../cache/mbpp_task.json
 cd ..
-uv run python -m agent_mbpp --task-file cache/mbpp_task.json --output cache/mbpp_solution.json --model-name <model> --provider-url <url>
+uv run python -m agent_mbpp --task-file cache/mbpp_task.json --output cache/mbpp_solution.json --model-name qwen/qwen3.8-27b --provider-url https://api.groq.com/openai/v1
 cd moulinette
 PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mbpp_task.json ../cache/mbpp_solution.json
+cat ../cache/mbpp_task.json
+PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval display ../cache/mbpp_solution.json
+cd ..
+```
+
+### SWE-bench pipeline
+
+#### 1. Extract the task
+
+```bash
+cd moulinette
+PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval dump swebench --task-id sympy__sympy-14711 --output ../cache/swebench_task.json
+cd ..
+```
+
+#### 2. Pull the task's Docker image
+
+Use **only one** of the first two lines, depending on your shell:
+
+```bash
+set img (python3 -c 'import json; print(json.load(open("cache/swebench_task.json"))["docker_image"])')   # fish
+img=$(python3 -c 'import json; print(json.load(open("cache/swebench_task.json"))["docker_image"])')     # bash / zsh
+docker pull $img
+```
+
+#### 3. Run the agent
+
+```bash
+uv run python -m agent_swebench --task-file cache/swebench_task.json --output cache/swebench_solution.json --model-name gemini-3.1-flash-lite --provider-url https://generativelanguage.googleapis.com/v1beta/openai
+```
+
+The tool server starts and removes the task's Docker container by itself. To watch it while the agent runs: `docker ps | grep sweb.eval` in another terminal.
+
+#### 4. Validate the solution
+
+On 42 machines, validation must run inside `rootlesskit bash`, otherwise Docker fails with `failed to Lchown`. Type the commands **one by one**, do not paste the whole block at once:
+
+```bash
+rootlesskit bash
+cd moulinette
+PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate swebench ../cache/swebench_task.json ../cache/swebench_solution.json
+exit
+```
+
+#### 5. Display the trace
+
+Outside `rootlesskit`, from `moulinette/`:
+
+```bash
+PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval display ../cache/swebench_solution.json
+cd ..
 ```
 
 [↑ Back to top](#top)
