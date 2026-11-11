@@ -19,8 +19,8 @@ SYSTEM = (
     "print(run_command(...)), and so on. '(no output)' means you "
     "forgot print().\n"
     "- The repository is at /testbed. Paths may be relative to it.\n"
-    "- Work only from the repository and the issue: never look for the fix "
-    "online, in a pull request or in another issue.\n"
+    "- Work only from the repository and the task description: never look "
+    "for the fix outside them.\n"
     "- Explore first: search_code, "
     "search_function_or_class_definition_in_code, find_references, "
     "then read_file on a small line range.\n"
@@ -109,8 +109,8 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
         task: The SWE-bench task to solve.
 
     Returns:
-        The repository name and the issue text, followed by the hints if the
-        task has any.
+        The repository name and the problem statement, followed by the hints
+        if the task has any.
     """
 
     prompt = (
