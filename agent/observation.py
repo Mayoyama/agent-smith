@@ -51,7 +51,8 @@ def no_code_observation() -> str:
 
     return (
         "No ```python block found in your reply. "
-        "Reply with a Thought, then exactly one ```python block."
+        "Do not reason by hand: test your idea in code with run_tests. "
+        "Reply with a one-sentence Thought, then exactly one ```python block."
     )
 
 
