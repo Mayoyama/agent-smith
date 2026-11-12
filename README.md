@@ -25,79 +25,63 @@ The agent is evaluated on two benchmarks: MBPP (short algorithmic Python problem
 
 ## Instructions
 
-Install dependencies with `uv sync`. Use `make lint` to run flake8 and mypy, and `make clean` to remove caches and compiled files.
+### Folder layout
+
+The repository is used next to the moulinette and the exam scripts, as in the evaluation:
+
+```
+eval_root/
+├── student/      # this repository
+├── moulinette/   # unzipped moulinette.zip
+├── exams/        # unzipped exams.zip
+└── .env          # API keys, see .env.example
+```
+
+Every `make` command below runs from `student/`, and every moulinette rule uses `../moulinette` (pass `MOULINETTE_DIR=<path>` for another location).
+
+API keys are never in the code. They are read from the environment, after a `.env` file is loaded: for each provider in `models_config.json`, `<key_prefix>` (e.g. `GEMINI_API_KEY`), then `<key_prefix>_1`, `<key_prefix>_2`, and so on. Both agents use `gemini-3.1-flash-lite` through Google AI Studio unless `--model-name` and `--provider-url` say otherwise, so a `GEMINI_API_KEY` (or `GEMINI_API_KEY_1`) is enough to run everything.
+
+### Setup
+
+```bash
+cd student
+make setup          # uv sync in student/ and in ../moulinette
+make pull-images    # pulls python:3.11-slim and the 6 exam-pool images (a few minutes)
+```
+
+`make pull-images` is optional but recommended: a SWE-bench run that has to download its image spends part of its 900-second budget on it. Docker must be running.
+
+On 42 computers, everything that validates a SWE-bench solution (the moulinette's `validate swebench`, `make validate-swebench`) must run inside `rootlesskit bash`, otherwise Docker fails with `failed to Lchown "/tmp/patch.diff"`. Start it first, then run the command inside it.
+
+### Tool servers and agents
 
 The interactive sandbox is started with `uv run sandbox`, optionally followed by a JSON config file (e.g. `sandbox_template.json`). Without one, the defaults from the subject are used. An MCP server is connected with `--mcp-stdio "<command>"` (the sandbox starts the server itself) or `--mcp-server <URL>` (an already running server over streamable HTTP; while the connection is refused, e.g. because the server is still starting, it is tried again every 0.5 seconds for up to 30 seconds). A block such as a `def` or a `for` loop is typed over several lines at a `... ` prompt and ends with an empty line. Input piped into the sandbox (e.g. `cat test.py | uv run sandbox`) runs as one entry. Type `exit` or press Ctrl+D to quit.
 
 The MBPP tool server runs over stdio by default. Start it with `python mcp_tools_mbpp.py --http [--port N]` to serve it over streamable HTTP instead, at `http://127.0.0.1:N/mcp` (port 8000 by default).
 
-The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. With `TESTBED_PATH` set, it works on that local folder. Otherwise it starts the Docker container of the task JSON at `SWE_TASK_FILE` and works on `/testbed` inside it; Docker must be running. `run_tests` reads the eval script from `SWE_TASK_FILE` in both modes.
+The SWE-bench tool server (`mcp_tools_swebench.py`) takes the same options. With `TESTBED_PATH` set, it works on that local folder. Otherwise, with `SWE_TASK_FILE` set to a task JSON, it starts that task's Docker container and works on `/testbed` inside it; Docker must be running. With neither, it works on a local `/testbed` folder. A path starting with `/testbed` is mapped to the repository root, so the same paths work in all three cases. `run_tests` reads the eval script from `SWE_TASK_FILE`.
 
-Run an agent with `uv run python -m agent_mbpp --task-file <task.json> --output <solution.json> --model-name <model> --provider-url <url>` (`agent_swebench` takes the same options). The provider is found in `models_config.json` by matching `--provider-url`, and its API keys are read from the environment (a `.env` file is loaded first) as `<key_prefix>` (e.g. `MISTRAL_API_KEY`), then `<key_prefix>_1`, `<key_prefix>_2`, and so on. The agent prints nothing on success: it writes a `SolutionOutput` JSON to `--output`. For SWE-bench, Docker must be running, and pulling the task's image beforehand (`docker pull <docker_image>`) avoids a slow first run.
- 
-The moulinette (`moulinette_eval`) needs Python 3.12 while the agents run on Python 3.10, so its steps are run one by one with `uv run --python 3.12` (`quickstart.sh` calls a plain `uv run` and fails on Python 3.10). For example, for MBPP (replace `mbpp` with `swebench` for SWE-bench, and add `--task-id <id>` to the dump to pick a task).
+An agent is run with `uv run python -m agent_mbpp --task-file <task.json> --output <solution.json> [--model-name <model> --provider-url <url>]` (`agent_swebench` takes the same options). The provider is found in `models_config.json` by matching `--provider-url`. The agent prints nothing on success: it writes a `SolutionOutput` JSON to `--output`.
 
-### MBPP pipeline
+### Single tasks during development
 
-```bash
-cd moulinette
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval dump mbpp --output ../cache/mbpp_task.json
-cd ..
-uv run python -m agent_mbpp --task-file cache/mbpp_task.json --output cache/mbpp_solution.json --model-name qwen/qwen3.8-27b --provider-url https://api.groq.com/openai/v1
-cd moulinette
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate mbpp ../cache/mbpp_task.json ../cache/mbpp_solution.json
-cat ../cache/mbpp_task.json
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval display ../cache/mbpp_solution.json
-cd ..
-```
-
-### SWE-bench pipeline
-
-#### 1. Extract the task
+The moulinette needs Python 3.12 while the agents run on Python 3.10, so the `make` rules call it with `uv run --python 3.12` (its `quickstart.sh` calls a plain `uv run` and fails on Python 3.10).
 
 ```bash
-cd moulinette
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval dump swebench --task-id sympy__sympy-14711 --output ../cache/swebench_task.json
-cd ..
+# MBPP
+make dump-mbpp ID=11                  # without ID: a random task; SEED=42 repeats a random pick
+make run-mbpp                         # MODEL=qwen/qwen3.8-27b URL=https://api.groq.com/openai/v1 for Groq
+make validate-mbpp
+make display
+
+# SWE-bench (validation inside rootlesskit bash on 42 computers)
+make dump-swebench ID=sympy__sympy-14711
+make run-swebench
+make validate-swebench
+make display SOLUTION=cache/swebench_solution.json
 ```
 
-#### 2. Pull the task's Docker image
-
-Use **only one** of the first two lines, depending on your shell:
-
-```bash
-set img (python3 -c 'import json; print(json.load(open("cache/swebench_task.json"))["docker_image"])')   # fish
-img=$(python3 -c 'import json; print(json.load(open("cache/swebench_task.json"))["docker_image"])')     # bash / zsh
-docker pull $img
-```
-
-#### 3. Run the agent
-
-```bash
-uv run python -m agent_swebench --task-file cache/swebench_task.json --output cache/swebench_solution.json --model-name gemini-3.1-flash-lite --provider-url https://generativelanguage.googleapis.com/v1beta/openai
-```
-
-The tool server starts and removes the task's Docker container by itself. To watch it while the agent runs: `docker ps | grep sweb.eval` in another terminal.
-
-#### 4. Validate the solution
-
-On 42 machines, validation must run inside `rootlesskit bash`, otherwise Docker fails with `failed to Lchown`. Type the commands **one by one**, do not paste the whole block at once:
-
-```bash
-rootlesskit bash
-cd moulinette
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval validate swebench ../cache/swebench_task.json ../cache/swebench_solution.json
-exit
-```
-
-#### 5. Display the trace
-
-Outside `rootlesskit`, from `moulinette/`:
-
-```bash
-PYTHONPATH="$PWD" uv run --python 3.12 moulinette_eval display ../cache/swebench_solution.json
-cd ..
-```
+The tool server starts and removes the task's Docker container by itself; `docker ps | grep sweb.eval` in another terminal shows it while the agent runs. For batches, `scripts/eval_mbpp.sh` and `scripts/eval_swebench.sh` dump, run and validate several tasks in a row (see System Architecture); with the folder layout above, run them as `MOUL_DIR=../moulinette bash scripts/eval_mbpp.sh 5`.
 
 [↑ Back to top](#top)
 
@@ -110,8 +94,8 @@ cd ..
 - `mcp_tools_mbpp.py`: MCP server with the MBPP tools.
 - `mcp_tools_swebench.py`: MCP server with the SWE-bench tools; `swebench_tools/` holds their implementations (`file_management.py`, `search.py`, `execution.py`) and the workspace classes (`tool_workspace.py`, `local_workspace.py`, `docker_workspace.py`).
 - `agent_mbpp/`, `agent_swebench/`: the two agent entry points. Each has its `__main__.py` (limits, setup, fallback answer), its `prompt.py` (system prompt and first message) and its `mcp_setup.py` (connection to its tool server).
-- `models_config.json`: the LLM providers (base URL and API key variable prefix). `sandbox_template.json`: an example sandbox config. `pyproject.toml` and `Makefile`: dependencies, `make lint` and helper targets.
-- `bench/`: the `solution.json` files behind `BENCHMARK_REPORT.md`. `scripts/eval_mbpp.sh`: runs N MBPP tasks through the moulinette, the given IDs first and the rest random (`bash scripts/eval_mbpp.sh N [ID...]`). `scripts/eval_swebench.sh`: dumps, runs (under the 900-second `run-agent` limit) and validates the given SWE-bench tasks, all 6 exam-pool tasks by default, and checks that no container is left (`bash scripts/eval_swebench.sh [ID...]`; on the school computers, inside `rootlesskit bash`). Both scripts run from the repo root and read three optional environment variables: `MODEL` and `URL` (defaults: qwen on Groq for MBPP, Gemini for SWE-bench) and `MOUL_DIR`, the moulinette folder (default: `moulinette/` in the repo).
+- `models_config.json`: the LLM providers (base URL and API key variable prefix). `sandbox_template.json`: an example sandbox config. `pyproject.toml` and `Makefile`: dependencies, and the `make` rules listed in Instructions (setup, sandbox modes, single-task runs, `make lint`, `make clean`).
+- `bench/`: the `solution.json` files behind `BENCHMARK_REPORT.md`. `scripts/eval_mbpp.sh`: runs N MBPP tasks through the moulinette, the given IDs first and the rest random (`bash scripts/eval_mbpp.sh N [ID...]`). `scripts/eval_swebench.sh`: dumps, runs (under the 900-second `run-agent` limit) and validates the given SWE-bench tasks, all 6 exam-pool tasks by default, and checks that no container is left (`bash scripts/eval_swebench.sh [ID...]`; on the school computers, inside `rootlesskit bash`). Both scripts run from the repo root and read three optional environment variables: `MODEL` and `URL` (defaults: qwen on Groq for MBPP, Gemini for SWE-bench) and `MOUL_DIR`, the moulinette folder (default: `moulinette/` in the repo; `MOUL_DIR=../moulinette` with the folder layout in Instructions).
 
 [↑ Back to top](#top)
 
@@ -122,7 +106,7 @@ The loop is in `agent/loop.py` (`run_agent`). It starts from a system prompt and
 1. The limits are checked before each request: wall-clock time, cumulative output tokens, and cumulative input tokens (the next request is estimated from the last request's input and output tokens plus the last observation, at about 3 characters per token). The input check keeps 100 tokens (`INPUT_TOKEN_RESERVE`) in reserve below the limit, since the estimate can be a little low. If one is exceeded, the loop stops and `error` names it (`max_time`, `max_output_tokens`, `max_input_tokens`, or `max_iterations` when the steps run out).
 2. The LLM is called. Before each request, every observation of the history except the last message is cut to 600 characters (`OLD_OBSERVATION_LIMIT`) with the marker `[old observation cut]`, so old tool output doesn't use the input budget at every later step. The reply is cut after the first code block or tool call, which removes any `Observation:` the model wrote itself. An empty reply is replaced by `(empty reply)`, so that no empty assistant message is sent. The code comes from a fenced `python` block or, for models that answer in another format, from an XML `<invoke>` call, a Hermes `<tool_call>` or a ReAct `Action` / `Action Input` pair, which `agent/extract.py` converts to an equivalent Python call (`result = tool(...)` followed by `print(result)`). The earliest match in the reply is used. A block with no code in it counts as no block.
 3. The code runs in the sandbox. Its output becomes the next user message, `Observation: ...`. A reply without a code block gets a reminder asking for a Thought and exactly one block instead, and is kept in the history cut to 150 characters (`NO_CODE_REPLY_LIMIT`) with the marker `[reply cut]`, since a long prose reply would otherwise be sent again at every later step (the input estimate counts the cut size). When a reply in another format was converted, the observation starts with a note showing the Python code that was run, and a code block tagged `Python` (or any tag other than `python`/`py`) is run with a note asking for the lowercase tag. A reply whose `python` block was opened but never closed (cut off by the token limit) runs nothing and gets a message saying so; this is checked on the full reply, before it is cut to 150 characters.
-4. If the code calls `final_answer()`, the loop ends and the answer is returned.
+4. If the code calls `final_answer()`, the answer is stored and the rest of the code still runs; once the run is over, the loop ends and returns the answer.
 
 Each step is recorded as a `StepMetrics` (tokens, request time, raw LLM output, sandbox input and output, retries, API URL and model), and the agent entry points build the `SolutionOutput` from them. Observations (`agent/observation.py`) contain the printed output, the last three lines of an error, and a note when the run timed out, the sandbox restarted (variables lost) or the output was truncated.
 
@@ -144,7 +128,7 @@ When every key has failed, the run ends with the error `all keys failed`. An opt
 `agent_swebench/` runs the same loop with the SWE-bench limits: 30 iterations, 300,000 input tokens, 10,000 output tokens, 900 seconds. The time budget counts from the start of the process, so the container start-up is included.
 
 - **Connection:** `mcp_setup.py` sets `SWE_TASK_FILE` to the absolute path of the task JSON, removes `TESTBED_PATH` from the environment (otherwise the server would work on a local folder instead of Docker), and starts `mcp_tools_swebench.py` over stdio. The connection waits up to 300 seconds (`MCP_CONNECT_TIMEOUT`), because the server starts the task's container before it answers and may first have to pull the image. The server starts the task's container and removes it when it exits. The agent never manages Docker itself.
-- **Prompt:** `prompt.py` builds the first message from the repository, the issue and the hints (if any). The system prompt asks the model to explore with the search tools, read small line ranges, make the smallest `edit_file` change, never edit test files, and read the test results in the `run_tests` output rather than its exit code (the eval script always exits with 0). Once the tests pass, the model submits `final_answer(get_patch())`. It also tells the model to work only from the repository and the issue, and never to look for the fix online, in a pull request or in another issue (V.1 and VI.4.1 of the subject). Two rules came from the runs on the exam-pool tasks: `search_code` takes a file name pattern such as `*.py` as `file_pattern`, never a path (a path matches nothing and gives a false "no lines matched"), and `old_str` should be a short piece of one line, without the line number prefix, the indentation or the closing brackets, because retyping those wrongly was the usual cause of failing edits. The rules are general: none of them names a task.
+- **Prompt:** `prompt.py` builds the first message from the repository, the issue and the hints (if any). The system prompt asks the model to explore with the search tools, read small line ranges, make the smallest `edit_file` change, never edit test files, and read the test results in the `run_tests` output rather than its exit code (the eval script always exits with 0). Once the tests pass, the model submits `final_answer(get_patch())`. It also tells the model to work only from the repository and the task description, and never to look for the fix outside them (V.1 and VI.4.1 of the subject). Two rules came from the runs on the exam-pool tasks: `search_code` takes a file name pattern such as `*.py` as `file_pattern`, never a path (a path matches nothing and gives a false "no lines matched"), and `old_str` should be a short piece of one line, without the line number prefix, the indentation or the closing brackets, because retyping those wrongly was the usual cause of failing edits. The rules are general: none of them names a task.
 - **Output:** `benchmark="swebench"`, `task_id` is the instance id, and `solution` is the git patch.
 - **Fallback:** the loop gets the time limit minus `TIME_MARGIN_SECONDS` (360 seconds), kept in reserve for the end of the run. If the model's answer is not a diff (it never called `final_answer`, or passed plain text to it), the agent calls `get_patch` itself and submits the repository diff, so edits made before the loop stopped (or crashed) are not lost.
 - **Cleanup:** the sandbox and the MCP client are closed in a `finally`, so the container is removed after a normal run or an error. A SIGTERM handler turns the signal into `sys.exit(1)`, so the same cleanup runs when the moulinette kills a timed-out agent. A container that outlives a SIGKILL stops by itself after 20 minutes.
@@ -167,7 +151,7 @@ Restrictions, configured through `SandboxConfig` (JSON file or defaults):
 
 Printed output is streamed to the parent while the code runs, so partial output survives a timeout. Output and errors are truncated to a limit (10,000 characters by default), keeping the first quarter and the last three quarters with a marker stating how much was cut.
 
-`final_answer()` is always in the namespace and is not an MCP tool: it raises a `BaseException` subclass that ends the run, so `except Exception` in generated code can't swallow it.
+`final_answer()` is always in the namespace and is not an MCP tool. It stores its argument and returns, so the code after it still runs. The child sends the stored answer back with the run's result, and the agent loop stops once the run is over. There is no exception to catch, so `except` clauses in generated code can't lose the answer.
 
 `SystemExit` and `KeyboardInterrupt` are available to the code and are not caught silently: when the code raises one, its traceback comes back as the error of that run and reaches the agent loop in the observation (V.2, exception propagation). The child ignores SIGINT, so a real Ctrl+C is handled by the parent and stops the agent.
 
@@ -190,7 +174,7 @@ Each tool is registered in `mcp_tools_swebench.py` as a thin wrapper that resolv
 The subject leaves several details of the tools open (V.4, V.5). The choices made, and why:
 
 - **Return values:** the subject describes some outputs only as "output", and doesn't say what `run_tests()` returns. The return value is the only thing the LLM gets back, so every tool returns its result as text; `run_tests()` returns the eval script's exit code, stdout and stderr.
-- **Paths:** relative paths are resolved from the repository root: `TESTBED_PATH` locally, `/testbed` in the container.
+- **Paths:** relative paths are resolved from the repository root: `TESTBED_PATH` locally, `/testbed` in the container. A path starting with `/testbed` is mapped to the repository root, so paths written for the container also work on a local folder. With neither `TESTBED_PATH` nor `SWE_TASK_FILE`, the server still starts and works on a local `/testbed`, so `uv run sandbox --mcp-stdio "python mcp_tools_swebench.py"` never fails to connect.
 - **Docker (V.4):** the sandbox runs on the host and the tools reach into the container (option b). The tool server owns the container: it is removed when the server exits or gets SIGTERM, and stops by itself after 20 minutes if the server is killed with SIGKILL. The container runs with `--network none`, so code in it (e.g. through `run_command`) can't reach the network or fetch a solution; the eval scripts of all 6 exam-pool tasks were checked to run without it. Shell commands run through `bash -lc` so the task's conda environment is active, and every command is stopped by `timeout` inside the container.
 - **`read_file`:** lines are numbered from 1, like `cat -n`. An `end_line` past the end of the file returns the rest of the file with a note giving its line count, instead of an error.
 - **`edit_file`:** `old_str` must occur exactly once; otherwise nothing is changed and the error says how often it was found. This avoids editing the wrong place silently. After a `.py` file is edited, a warning is added if it no longer compiles (required by V.1).
