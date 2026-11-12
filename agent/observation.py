@@ -42,17 +42,26 @@ def format_observation(res: Results, timeout: int) -> str:
     return "\n".join(parts) or "(no output: use print() to see results)"
 
 
-def no_code_observation() -> str:
+def no_code_observation(extra_hint: str = "") -> str:
     """Message sent when the LLM reply contains no code block.
+
+    Args:
+        extra_hint: Sentence placed between the two sentences of the
+            message, for advice that fits one agent only. Empty by default.
 
     Returns:
         A reminder asking for a Thought and exactly one python block.
     """
 
-    return (
-        "No ```python block found in your reply. "
-        "Reply with a Thought, then exactly one ```python block."
-    )
+    message = "No ```python block found in your reply. "
+
+    if extra_hint:
+        message += extra_hint + " "
+
+    message += ("Reply with a one-sentence Thought, then exactly "
+                "one ```python block.")
+
+    return message
 
 
 def cut_off_observation() -> str:

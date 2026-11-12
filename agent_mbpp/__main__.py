@@ -31,6 +31,7 @@ MAX_OUTPUT_TOKENS = 1500
 MAX_TIME_SECONDS = 120
 DEADLINE_SECONDS = 100
 SHUTDOWN_MARGIN_SECONDS = 10
+NO_CODE_HINT = "Do not reason by hand: test your idea in code with run_tests."
 
 
 def defines_function(source: str) -> bool:
@@ -141,6 +142,7 @@ if __name__ == "__main__":
                 model_name=args.model_name,
                 steps=steps,
                 check_answer=check_answer,
+                no_code_hint=NO_CODE_HINT,
             )
         except Exception as e:
             result = RunResult(None, steps, f"crash: {e}")

@@ -12,10 +12,10 @@ SYSTEM = (
     "Never write the Observation yourself.\n"
     "\n"
     "Rules:\n"
-    "- Turn 1: store the full function source in a string variable "
-    "`code`, store the given assertions in a list `tests`, then run "
-    "result = run_tests(code, tests), print(result), and submit in the "
-    "same block when every test passes: "
+    "- Turn 1: store the full function source in a triple-quoted string "
+    "`code = \"\"\"...\"\"\"`, store the given assertions in a list "
+    "`tests`, then run result = run_tests(code, tests), print(result), "
+    "and submit in the same block when every test passes: "
     "if '\"success\": true' in result: final_answer(code)\n"
     "- run_tests runs every assertion separately and returns JSON with "
     "\"success\" and one PASS, FAIL or TIMEOUT line per assertion. "
@@ -38,7 +38,7 @@ SYSTEM = (
     "\n"
     "Thought: Write the function, test it and submit it if it passes.\n"
     "```python\n"
-    r'code = "def add(a, b):\n    return a + b"' "\n"
+    'code = """def add(a, b):\n    return a + b"""\n'
     'tests = ["assert add(1, 2) == 3"]\n'
     "result = run_tests(code, tests)\n"
     "print(result)\n"
