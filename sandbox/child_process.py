@@ -69,7 +69,8 @@ def child_process(
         if name not in ("__builtins__", "__name__"):
             process_protections.protected_names.add(name)
 
-    bytes_limit = config.max_memory_mb * 1024 * 1024
+    bytes_limit = (get_process_memory_size() 
+                   + (config.max_memory_mb * 1024 * 1024))
     max_file_bytes = 100 * 1024 * 1024
 
     resource.setrlimit(resource.RLIMIT_AS, (bytes_limit, bytes_limit))
@@ -232,3 +233,21 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
         return reply.text
 
     return tool_call_function
+
+def get_process_memory_size() -> int:
+    """Return the virtual memory size of this process, in bytes.
+
+    Returns:
+        VmSize from /proc/self/status, or 0 if it can't be read.
+    """
+
+    try:
+        with open("/proc/self/status") as status:
+            for line in status:
+                if line.startswith("VmSize:"):
+                    return int(line.split()[1]) * 1024
+
+    except (OSError, ValueError, IndexError):
+        return 0
+
+    return 0
