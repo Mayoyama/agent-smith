@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from typing import Any, Callable
 from common import (SandboxConfig, ToolCall, ToolResult,
                     ResourceRequest, PromptRequest)
-from .final_answer import FinalAnswer, send_final_answer
+from .final_answer import FinalAnswer
 from .results import Results
 from .security import Security
 from .output_stream import OutputStreamer
@@ -30,7 +30,9 @@ def child_process(
     sets the memory and file size limits, blocks network access, clears the
     environment variables (so API keys can't be read) and ignores Ctrl+C. Each
     message is checked with the AST check and executed, with printed output
-    streamed to the parent, then answered with a Results. An error, including
+    streamed to the parent, then answered with a Results. final_answer stores
+    its argument without stopping the code; the stored answer, cleared before
+    each message, is sent back as Results.final_ans. An error, including
     a SystemExit or KeyboardInterrupt raised by the code, is sent back as the
     traceback in Results.error. A None message ends the loop.
 
@@ -48,7 +50,9 @@ def child_process(
 
     namespace: dict[str, Any] = {}
     namespace["__builtins__"] = builtins_dict
-    namespace["final_answer"] = send_final_answer
+
+    answer = FinalAnswer()
+    namespace["final_answer"] = answer.submit
     namespace["__name__"] = "sandbox"
 
     for tool in tool_names:
@@ -80,15 +84,12 @@ def child_process(
 
         buffer = OutputStreamer(conn)
         err = ""
-        final_answer = None
+        answer.value = None
 
         try:
             with redirect_stdout(buffer):
                 process_protections.ast_parse(msg)
                 exec(msg, namespace)
-
-        except FinalAnswer as fa:
-            final_answer = str(fa.value)
 
         except (SystemExit, KeyboardInterrupt, Exception):
             err = traceback.format_exc(chain=True)
@@ -99,7 +100,7 @@ def child_process(
         conn.send(Results(
             output="",
             error=err,
-            final_ans=final_answer,
+            final_ans=answer.value,
         ))
 
     conn.close()

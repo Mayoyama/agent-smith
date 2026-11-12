@@ -3,12 +3,19 @@
 from argparse import ArgumentParser, Namespace
 
 
+DEFAULT_MODEL: str = "gemini-3.1-flash-lite"
+DEFAULT_PROVIDER_URL: str = (
+    "https://generativelanguage.googleapis.com/v1beta/openai"
+)
+
+
 def setup_agent_parser() -> ArgumentParser:
     """Build the command-line parser shared by both agents.
 
     Returns:
-        A parser with the required options --task-file, --output, --model-name
-        and --provider-url.
+        A parser with the required options --task-file and --output, and the
+        optional --model-name and --provider-url, which default to
+        DEFAULT_MODEL and DEFAULT_PROVIDER_URL (Gemini) when not given.
     """
 
     parser = ArgumentParser(description="argument parser")
@@ -29,15 +36,15 @@ def setup_agent_parser() -> ArgumentParser:
     parser.add_argument(
         "--model-name",
         type=str,
-        required=True,
-        help="model/name",
+        default=DEFAULT_MODEL,
+        help=f"model name (default: {DEFAULT_MODEL})",
     )
 
     parser.add_argument(
         "--provider-url",
         type=str,
-        required=True,
-        help="URL for the api",
+        default=DEFAULT_PROVIDER_URL,
+        help=f"URL for the API (default: {DEFAULT_PROVIDER_URL})",
     )
 
     return parser

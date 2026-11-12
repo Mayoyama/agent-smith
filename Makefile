@@ -123,4 +123,4 @@ clean:
 	find . -not -path './.venv/*' -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" \)  -exec rm -rf {} +
 	find . -type f \( -name "*.pyo" -o -name "*.pyc" -o -name "*~" \) -delete
 
-.PHONY: lint clean run-swebench validate-swebench validate-mbpp dump-swebench display run-mbpp dump-mbpp sandbox-http http-setup sandbox-swebench sandbox-mbpp sandbox pull-images setup
+.PHONY: lint clean run-swebench validate-swebench validate-mbpp dump-swebench display run-mbpp dump-mbpp sandbox-http http-setup sandbox-swebench sandbox-mbpp sandbox pull-images setup sandbox-stdio

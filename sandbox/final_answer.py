@@ -1,35 +1,33 @@
-"""Exception-based signal for submitting a final answer from sandboxed code."""
+"""Storage for the answer that sandboxed code submits with final_answer()."""
+
+from dataclasses import dataclass
 
 
-class FinalAnswer(BaseException):
-    """Signal raised to end execution with a final answer.
+@dataclass
+class FinalAnswer:
+    """Holds the answer submitted with final_answer() during one run.
 
-    Inherits from BaseException so `except Exception` in model code cannot
-    swallow it.
+    The child process puts the bound submit method in the namespace as
+    final_answer, clears value before each run and sends it back with the
+    run's Results. final_answer() returns normally, so the rest of the code
+    still runs; the agent loop takes the answer once the run is over.
 
     Attributes:
-        value: The submitted answer.
+        value: The submitted answer, or None if none was submitted yet.
     """
 
-    def __init__(self, value: object) -> None:
-        """Store the submitted answer.
+    value: str | None = None
+
+    def submit(self, answer: object) -> str:
+        """Store the answer; the run goes on, and the last call wins.
 
         Args:
-            value: The answer passed to final_answer().
+            answer: The answer passed to final_answer().
+
+        Returns:
+            The stored answer.
         """
 
-        super().__init__(value)
-        self.value = value
+        self.value = str(answer)
 
-
-def send_final_answer(answer: object) -> None:
-    """Submit a final answer from sandboxed code.
-
-    Args:
-        answer: The answer to submit.
-
-    Raises:
-        FinalAnswer: Always, carrying the value.
-    """
-
-    raise FinalAnswer(answer)
+        return self.value

@@ -1,11 +1,13 @@
 """MCP server with the SWE-bench tools.
 
-With TESTBED_PATH set, the tools work on that local folder. Otherwise the
-server starts the Docker container of the task in SWE_TASK_FILE, works on
-/testbed inside it and removes it on exit or SIGTERM. Relative file paths are
-resolved from the repository root. Runs over stdio by default, or over
-streamable HTTP with --http (http://127.0.0.1:PORT/mcp, port 8000 unless --port
-is given).
+With TESTBED_PATH set, the tools work on that local folder. Otherwise, with
+SWE_TASK_FILE set, the server starts the Docker container of that task, works
+on /testbed inside it and removes it on exit or SIGTERM. With neither, the
+tools work on a local /testbed folder and report an error if it doesn't
+exist, so the server still starts. Relative file paths are resolved from the
+repository root, and a leading /testbed is replaced by it. Runs over stdio by
+default, or over streamable HTTP with --http (http://127.0.0.1:PORT/mcp, port
+8000 unless --port is given).
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -60,6 +62,9 @@ def handle_sigterm(signum: int, frame: Any) -> None:
 def get_absolute_path(filepath: str) -> str:
     """Resolve a path against the repository root.
 
+    A leading /testbed is replaced by the repository root, so paths written
+    for the container also work on a local folder (TESTBED_PATH).
+
     Args:
         filepath: Path from the LLM, absolute or relative to the repository
             root.
@@ -68,7 +73,10 @@ def get_absolute_path(filepath: str) -> str:
         The normalised absolute path.
     """
 
-    if not os.path.isabs(filepath):
+    if filepath == "/testbed" or filepath.startswith("/testbed/"):
+        filepath = WORKSPACE.root_path + filepath[len("/testbed"):]
+
+    elif not os.path.isabs(filepath):
         filepath = os.path.join(WORKSPACE.root_path, filepath)
 
     return os.path.normpath(filepath)
@@ -442,6 +450,11 @@ if __name__ == "__main__":
 
     if TESTBED_PATH:
         WORKSPACE = swebench_tools.LocalWorkspace(TESTBED_PATH)
+
+    elif not os.environ.get("SWE_TASK_FILE"):
+        print("TESTBED_PATH and SWE_TASK_FILE not set: using /testbed "
+              "as default", file=sys.stderr)
+        WORKSPACE = swebench_tools.LocalWorkspace("/testbed")
 
     else:
         try:
