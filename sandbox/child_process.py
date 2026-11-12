@@ -27,7 +27,8 @@ def child_process(
 
     Gives the namespace restricted builtins, adds final_answer, one wrapper per
     tool and, if the server supports them, the resource and prompt functions,
-    sets the memory and file size limits, blocks network access, clears the
+    marks those names as protected so the code can't redefine them, sets the
+    memory and file size limits, blocks network access, clears the
     environment variables (so API keys can't be read) and ignores Ctrl+C. Each
     message is checked with the AST check and executed, with printed output
     streamed to the parent, then answered with a Results. final_answer stores
@@ -63,6 +64,10 @@ def child_process(
 
     if supports_prompts:
         namespace["read_prompt_info"] = make_prompt_function(conn)
+
+    for name in namespace:
+        if name not in ("__builtins__", "__name__"):
+            process_protections.protected_names.add(name)
 
     bytes_limit = config.max_memory_mb * 1024 * 1024
     max_file_bytes = 100 * 1024 * 1024
