@@ -109,16 +109,14 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
         task: The SWE-bench task to solve.
 
     Returns:
-        The repository name and the problem statement, followed by the hints
-        if the task has any.
+        The repository name and the problem statement. The hints of the
+        task are not added.
     """
 
     prompt = (
         f"Repository: {task.repo}\n\n"
         f"Issue:\n{task.problem_statement}"
     )
-    if task.hints_text:
-        prompt += f"\n\nHints:\n{task.hints_text}"
     return prompt
 
 
