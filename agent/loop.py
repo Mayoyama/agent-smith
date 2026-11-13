@@ -127,6 +127,7 @@ def run_agent(
     end_time: float | None = None,
     steps: list[StepMetrics] | None = None,
     check_answer: Callable[[str], str | None] | None = None,
+    no_code_hint: str = "",
 ) -> RunResult:
     """Run the Thought -> Code -> Observation loop until an answer or a limit.
 
@@ -165,6 +166,8 @@ def run_agent(
             the answer must be refused, else None. A refused answer is sent
             back to the model as the observation and the loop goes on. None
             accepts every answer.
+        no_code_hint: Extra sentence for the reminder sent when a reply has no
+            code block; empty by default.
 
     Returns:
         A RunResult with the answer and the steps. Without an answer, error is
@@ -224,7 +227,7 @@ def run_agent(
             if unclosed:
                 observation = cut_off_observation()
             else:
-                observation = no_code_observation()
+                observation = no_code_observation(no_code_hint)
         else:
             exec_limit: float | None = None
             if end_time is not None:

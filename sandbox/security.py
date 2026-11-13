@@ -63,6 +63,9 @@ class Security:
             modules outside the allowlist (e.g. "_os", "sys").
         allowed_dirs: Directories sandboxed code may access.
         resolved_dirs: The allowed directories with symlinks and ".." resolved.
+        protected_names: Names given to sandboxed code (final_answer and the
+            tools), which the code may call but not redefine. Empty until
+            the child process fills it.
     """
 
     def __init__(self, config: SandboxConfig):
@@ -77,6 +80,7 @@ class Security:
 
         self.allowed_dirs = config.allowed_directories
         self.resolved_dirs = [os.path.realpath(d) for d in self.allowed_dirs]
+        self.protected_names: set[str] = set()
 
     def safe_import(
         self,
@@ -241,19 +245,49 @@ class Security:
         Blocks dunder names other than __name__, dunder attributes not in
         DUNDERS_WHITELIST, the attributes in ATTRIBUTE_BLACKLIST, the module
         escapes, and the names in STRING_ACCESS_BLACKLIST, whether used as a
-        name, as an attribute or in a from-import.
+        name, as an attribute or in a from-import. Also rejects code that
+        binds a name in protected_names (assignment, def, class, import as,
+        except as), so a provided function can't be replaced.
 
         Args:
             code: Python source to check.
 
         Raises:
-            PermissionError: If a blocked name or attribute is used.
+            PermissionError: If a blocked name or attribute is used, or a
+                protected name is redefined.
             SyntaxError: If the code cannot be parsed.
         """
 
         tree = ast.parse(code)
 
         for node in ast.walk(tree):
+            bound_names: list[str] = []
+
+            if isinstance(node, ast.Name):
+                if not isinstance(node.ctx, ast.Load):
+                    bound_names.append(node.id)
+
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef)):
+                bound_names.append(node.name)
+
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    if alias.asname is not None:
+                        bound_names.append(alias.asname)
+                    else:
+                        bound_names.append(alias.name.split(".")[0])
+
+            if isinstance(node, ast.ExceptHandler) and node.name:
+                bound_names.append(node.name)
+
+            for bound in bound_names:
+                if bound in self.protected_names:
+                    raise PermissionError(
+                        f"'{bound}' is a provided function: call it, "
+                        "don't redefine it"
+                    )
+
             if isinstance(node, ast.Name):
                 name = node.id
 
