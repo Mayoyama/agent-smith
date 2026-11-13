@@ -72,8 +72,9 @@ Tried and excluded:
 - `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash`: listed by the
   API, but every request was rate-limited: 0 iterations on all 6 pool tasks,
   so no free quota for these models on our keys.
-- `nicoboss/DeepSeek-R1-Distill-Qwen-32B-Uncensored` (deployed): HTTP 403
-  "Access Denied" on every request, 0 iterations.
+- `nicoboss/DeepSeek-R1-Distill-Qwen-32B-Uncensored` (deployed): listed and
+  deployable on build.nvidia.com, but every request was refused with HTTP 403
+  "Access Denied" and no reason given, so 0 iterations.
 - NVIDIA catalogue: `google/gemma-3-4b-it` and `google/gemma-3-12b-it`
   answered 404, `google/gemma-4-31b-it` ended with `all keys failed`, all at
   step 0. Before the next runs, each candidate got one short chat request:
@@ -110,7 +111,7 @@ iterations, where most other runs take 4 to 12 (section 2.1).
 |---|---|---|
 | `gemini-3.1-flash-lite`, 6 pool tasks (also 8.3) | 7 November | commit `3c7d559` |
 | `gemini-3.5-flash-lite`, 6 pool tasks | 12 November, 03:13 to 03:21 | between `2ea343b` and `09b1014` |
-| Every other run of 2.1: all runs on `django-11099`, all NVIDIA and Mistral models | 13 November, 00:16 to 07:12 | commit `9805ceb` (plus the NVIDIA entry of `models_config.json`) |
+| Every other run of 2.1: all runs on `django-11099`, all NVIDIA and Mistral models | 13 November, 00:16 to 10:35 | commit `9805ceb` (plus the NVIDIA entry of `models_config.json`) |
 
 Between `3c7d559` and `9805ceb`: the tool paths starting with `/testbed` are
 mapped to the repository root and `final_answer` no longer raises
@@ -131,15 +132,15 @@ not the agent's own `success` field.
 |---|---|---|---|---|---|---|---|---|---|
 | nemotron-3.5-super-120b | NVIDIA (catalogue) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
 | mistral-large-4-1t | NVIDIA (catalogue) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
+| ministral-14b-latest | Mistral | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
 | cydonia-24b-v4.3 | NVIDIA (NIM, deployed) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
 | laguna-xs-2.1 | NVIDIA (catalogue) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
 | gemini-3.1-flash-lite | Google | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 7/7 |
+| codestral-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | PASS | PASS | PASS | 6/7 |
 | qwen2.5-coder-32b-instruct | NVIDIA (NIM, deployed) | PASS | PASS | PASS | PASS | fail | PASS | PASS | 6/7 |
-| ministral-14b-latest | Mistral | PASS | PASS | PASS | fail (rate limit) | PASS | PASS | PASS | 6/7 |
 | nemotron-3.5-bolt-e4b | NVIDIA (catalogue) | PASS | PASS | PASS | PASS | PASS | PASS | fail | 6/7 |
 | minimax-m3.1-flash | NVIDIA (catalogue) | PASS | PASS | fail | PASS | PASS | PASS | PASS | 6/7 |
 | gemini-3.5-flash-lite | Google | PASS | PASS | fail | PASS | PASS | PASS | PASS | 6/7 |
-| codestral-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | PASS | PASS | fail (rate limit) | 5/7 |
 | ministral-3b-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | PASS | PASS | fail (rate limit) | 5/7 |
 | ministral-8b-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | fail (rate limit) | PASS | PASS | 5/7 |
 | qwen2.5-coder-32b-abliterated | NVIDIA (NIM, deployed) | PASS | PASS | fail | PASS | PASS | PASS | fail | 5/7 |
@@ -148,17 +149,19 @@ not the agent's own `success` field.
 | llama3.3-8b-thinking | NVIDIA (NIM, deployed) | fail | fail | fail | fail | fail | fail | fail | 0/7 |
 
 "fail (rate limit)": the run reached the agent's 540 s time budget because
-Mistral's free tier made it wait about 60 s after every 2 requests that night
-(section 3). It counts as a failure, since a run that exceeds a limit fails
-(subject VI.1), but it says nothing about the model. These 7 runs will be
-re-run.
+Mistral's free tier made it wait about 60 s after every 2 requests (section
+3). It counts as a failure, since a run that exceeds a limit fails (subject
+VI.1). The night runs gave 7 such failures; all 7 were run again later
+that morning. 2 passed (`ministral-14b-latest` on django-11066, `codestral-latest`
+on django-11099) and replace the night runs in the grid; the other 5 hit the
+same limit a second time. Both runs of each cell are in `bench/rerun/`.
 
 ```mermaid
 xychart-beta
     title "SWE-bench tasks passed out of 7"
-    x-axis ["nemo-120b", "mistral-l4", "cydonia", "laguna", "gem-3.1-fl", "qwen-32b", "minis-14b", "nemo-e4b", "minimax", "gem-3.5-fl", "codestral", "minis-3b", "minis-8b", "qwen-abl", "muse-30b", "riva-4b", "llama-8b"]
+    x-axis ["nemo-120b", "mistral-l4", "minis-14b", "cydonia", "laguna", "gem-3.1-fl", "codestral", "qwen-32b", "nemo-e4b", "minimax", "gem-3.5-fl", "minis-3b", "minis-8b", "qwen-abl", "muse-30b", "riva-4b", "llama-8b"]
     y-axis "Tasks passed" 0 --> 7
-    bar [7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 0, 0]
+    bar [7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 5, 5, 5, 5, 0, 0]
 ```
 
 Full results:
@@ -179,6 +182,13 @@ Full results:
 | mistral-large-4-1t | scikit-learn-13439 | PASS | 11 | 38,198 | 987 | 349.4 |
 | mistral-large-4-1t | sympy-18189 | PASS | 7 | 27,332 | 623 | 113.3 |
 | mistral-large-4-1t | django-11099 | PASS | 10 | 33,482 | 688 | 137.0 |
+| ministral-14b-latest | sympy-13480 | PASS | 4 | 13,827 | 180 | 76.1 |
+| ministral-14b-latest | xarray-4629 | PASS | 5 | 21,238 | 251 | 137.8 |
+| ministral-14b-latest | sympy-14711 | PASS | 16 | 63,084 | 1,101 | 457.0 |
+| ministral-14b-latest | django-11066 | PASS | 11 | 43,429 | 673 | 270.2 |
+| ministral-14b-latest | scikit-learn-13439 | PASS | 12 | 49,774 | 638 | 327.7 |
+| ministral-14b-latest | sympy-18189 | PASS | 5 | 21,262 | 288 | 154.2 |
+| ministral-14b-latest | django-11099 | PASS | 13 | 42,560 | 727 | 332.5 |
 | cydonia-24b-v4.3 | sympy-13480 | PASS | 4 | 13,622 | 197 | 19.7 |
 | cydonia-24b-v4.3 | xarray-4629 | PASS | 9 | 38,613 | 369 | 32.4 |
 | cydonia-24b-v4.3 | sympy-14711 | PASS | 24 | 103,801 | 1,515 | 78.8 |
@@ -200,6 +210,13 @@ Full results:
 | gemini-3.1-flash-lite | scikit-learn-13439 | PASS | 20 | 96,864 | 1,514 | 99.3 |
 | gemini-3.1-flash-lite | sympy-18189 | PASS | 6 | 27,506 | 430 | 38.0 |
 | gemini-3.1-flash-lite | django-11099 | PASS | 9 | 35,588 | 683 | 55.7 |
+| codestral-latest | sympy-13480 | PASS | 5 | 17,253 | 177 | 133.4 |
+| codestral-latest | xarray-4629 | PASS | 6 | 23,767 | 197 | 134.1 |
+| codestral-latest | sympy-14711 | FAIL | 17 | 60,963 | 989 | 563.0 |
+| codestral-latest | django-11066 | PASS | 7 | 25,845 | 250 | 194.1 |
+| codestral-latest | scikit-learn-13439 | PASS | 8 | 26,940 | 305 | 192.9 |
+| codestral-latest | sympy-18189 | PASS | 5 | 20,671 | 180 | 147.7 |
+| codestral-latest | django-11099 | PASS | 10 | 34,735 | 488 | 261.2 |
 | qwen2.5-coder-32b-instruct | sympy-13480 | PASS | 4 | 13,196 | 149 | 21.3 |
 | qwen2.5-coder-32b-instruct | xarray-4629 | PASS | 6 | 22,447 | 222 | 27.7 |
 | qwen2.5-coder-32b-instruct | sympy-14711 | PASS | 15 | 52,434 | 763 | 58.8 |
@@ -207,13 +224,6 @@ Full results:
 | qwen2.5-coder-32b-instruct | scikit-learn-13439 | FAIL | 14 | 62,385 | 598 | 63.9 |
 | qwen2.5-coder-32b-instruct | sympy-18189 | PASS | 4 | 16,598 | 183 | 35.6 |
 | qwen2.5-coder-32b-instruct | django-11099 | PASS | 19 | 68,771 | 1,258 | 79.4 |
-| ministral-14b-latest | sympy-13480 | PASS | 4 | 13,827 | 180 | 76.1 |
-| ministral-14b-latest | xarray-4629 | PASS | 5 | 21,238 | 251 | 137.8 |
-| ministral-14b-latest | sympy-14711 | PASS | 16 | 63,084 | 1,101 | 457.0 |
-| ministral-14b-latest | django-11066 | FAIL | 16 | 64,210 | 1,173 | 582.1 |
-| ministral-14b-latest | scikit-learn-13439 | PASS | 12 | 49,774 | 638 | 327.7 |
-| ministral-14b-latest | sympy-18189 | PASS | 5 | 21,262 | 288 | 154.2 |
-| ministral-14b-latest | django-11099 | PASS | 13 | 42,560 | 727 | 332.5 |
 | nemotron-3.5-bolt-e4b | sympy-13480 | PASS | 5 | 17,802 | 238 | 14.7 |
 | nemotron-3.5-bolt-e4b | xarray-4629 | PASS | 8 | 37,112 | 417 | 17.4 |
 | nemotron-3.5-bolt-e4b | sympy-14711 | PASS | 8 | 28,956 | 510 | 15.7 |
@@ -235,13 +245,6 @@ Full results:
 | gemini-3.5-flash-lite | scikit-learn-13439 | PASS | 20 | 100,831 | 1,202 | 80.5 |
 | gemini-3.5-flash-lite | sympy-18189 | PASS | 4 | 18,943 | 221 | 26.4 |
 | gemini-3.5-flash-lite | django-11099 | PASS | 12 | 46,576 | 616 | 26.0 |
-| codestral-latest | sympy-13480 | PASS | 5 | 17,253 | 177 | 133.4 |
-| codestral-latest | xarray-4629 | PASS | 6 | 23,767 | 197 | 134.1 |
-| codestral-latest | sympy-14711 | FAIL | 17 | 60,963 | 989 | 563.0 |
-| codestral-latest | django-11066 | PASS | 7 | 25,845 | 250 | 194.1 |
-| codestral-latest | scikit-learn-13439 | PASS | 8 | 26,940 | 305 | 192.9 |
-| codestral-latest | sympy-18189 | PASS | 5 | 20,671 | 180 | 147.7 |
-| codestral-latest | django-11099 | FAIL | 19 | 75,044 | 884 | 577.1 |
 | ministral-3b-latest | sympy-13480 | PASS | 4 | 13,787 | 153 | 73.0 |
 | ministral-3b-latest | xarray-4629 | PASS | 7 | 27,806 | 313 | 194.4 |
 | ministral-3b-latest | sympy-14711 | FAIL | 19 | 73,933 | 1,796 | 563.6 |
@@ -285,7 +288,7 @@ Full results:
 | llama3.3-8b-thinking | sympy-18189 | FAIL | 30 | 150,239 | 1,964 | 74.1 |
 | llama3.3-8b-thinking | django-11099 | FAIL | 30 | 119,231 | 1,272 | 62.9 |
 
-Pass count: 90 of 119 runs. Every row was validated with the moulinette on its
+Pass count: 92 of 119 runs. Every row was validated with the moulinette on its
 own solution file. The backing files are `bench/final/<model>__<task>.json`,
 with the short model names of the tables.
 
@@ -293,10 +296,11 @@ Notes
 - Every failure except one ends on `max_iterations` or `max_time`. The
   exception is `qwen2.5-coder-32b-instruct` on scikit-learn-13439: it called
   `final_answer` at step 14 with an empty patch (section 10.5).
-- All 7 Mistral failures are the rate-limit timeouts above: 16 to 20
-  iterations in 563 to 590 s, with 9 retries each. On the tasks they passed,
-  the same models took 73 to 457 s, against 7 to 48 s in the first round
-  (2.2).
+- All 5 Mistral failures are the rate-limit timeouts above: 17 to 20
+  iterations in 563 to 590 s, with 9 retries each, and 19 to 21 iterations in
+  the second attempt. The Mistral runs that pass use at most 16 iterations.
+  On the tasks they passed, the same models took 73 to 457 s, against 7 to
+  48 s in the first round (2.2).
 - `muse-glimmer-30b` fails sympy-14711 on `max_time` too, but with 2 retries:
   its replies took 23 s on average in that run, so the time went into the
   model's answers, not into waiting for the quota.
@@ -384,22 +388,22 @@ replies" are replies with no text at all, which the agent answers with its
 |---|---|---|---|---|---|
 | NVIDIA (catalogue) | nemotron-3.5-super-120b | 55 | 3,371 ms | 0 | 2 |
 | NVIDIA (catalogue) | mistral-large-4-1t | 65 | 12,863 ms | 2 | 12 |
+| Mistral | ministral-14b-latest | 92 | 1,644 ms | 26 | 0 |
 | NVIDIA (NIM, deployed) | cydonia-24b-v4.3 | 78 | 2,718 ms | 0 | 1 |
 | NVIDIA (catalogue) | laguna-xs-2.1 | 83 | 1,269 ms | 0 | 0 |
 | Google | gemini-3.1-flash-lite | 86 | 3,124 ms | 2 | 6 |
+| Mistral | codestral-latest | 83 | 692 ms | 25 | 0 |
 | NVIDIA (NIM, deployed) | qwen2.5-coder-32b-instruct | 66 | 3,267 ms | 0 | 0 |
-| Mistral | ministral-14b-latest | 102 | 1,727 ms | 31 | 0 |
 | NVIDIA (catalogue) | nemotron-3.5-bolt-e4b | 72 | 1,179 ms | 0 | 0 |
 | NVIDIA (catalogue) | minimax-m3.1-flash | 132 | 8,244 ms | 43 | 21 |
 | Google | gemini-3.5-flash-lite | 88 | 1,291 ms | 7 | 0 |
-| Mistral | codestral-latest | 97 | 706 ms | 30 | 0 |
 | Mistral | ministral-3b-latest | 106 | 759 ms | 33 | 0 |
 | Mistral | ministral-8b-latest | 105 | 1,369 ms | 31 | 0 |
 | NVIDIA (NIM, deployed) | qwen2.5-coder-32b-abliterated | 83 | 3,384 ms | 0 | 0 |
 | NVIDIA (catalogue) | muse-glimmer-30b | 91 | 14,506 ms | 6 | 6 |
 | NVIDIA (NIM, deployed) | riva-translate-4b | 210 | 1,711 ms | 0 | 2 |
 | NVIDIA (NIM, deployed) | llama3.3-8b-thinking | 211 | 2,066 ms | 1 | 0 |
-TOTAL [1730, 186]
+### RELTOTAL [1706, 176, 115]
 
 First round (section 2.2, files in `bench/`):
 
@@ -411,26 +415,28 @@ First round (section 2.2, files in `bench/`):
 | ministral-3b-latest | 68 | 857 ms | 0 |
 | gemini-3.1-flash-lite | 36 | 2,685 ms | 0 |
 
-Availability during the benchmark runs: in 2.1, 1,730 requests and 186
-retries. 125 of the retries are the Mistral throttling below, 43 are
+Availability during the benchmark runs: in 2.1, 1,706 requests and 176
+retries. 115 of the retries are the Mistral throttling below, 43 are
 `minimax-m3.1-flash`. Every request was answered in the end; the retries are
-waits. In
-2.2, 212 requests, 0 retries.
+waits. In 2.2, 212 requests, 0 retries.
 
 ```mermaid
 xychart-beta
     title "Average response time per request (seconds, section 2.1)"
-    x-axis ["codestral", "minis-3b", "nemo-e4b", "laguna", "gem-3.5-fl", "minis-8b", "riva-4b", "minis-14b", "llama-8b", "cydonia", "gem-3.1-fl", "qwen-32b", "nemo-120b", "qwen-abl", "minimax", "mistral-l4", "muse-30b"]
+    x-axis ["codestral", "minis-3b", "nemo-e4b", "laguna", "gem-3.5-fl", "minis-8b", "minis-14b", "riva-4b", "llama-8b", "cydonia", "gem-3.1-fl", "qwen-32b", "nemo-120b", "qwen-abl", "minimax", "mistral-l4", "muse-30b"]
     y-axis "Seconds" 0 --> 15
-    bar [0.7, 0.8, 1.2, 1.3, 1.3, 1.4, 1.7, 1.7, 2.1, 2.7, 3.1, 3.3, 3.4, 3.4, 8.2, 12.9, 14.5]
+    bar [0.7, 0.8, 1.2, 1.3, 1.3, 1.4, 1.6, 1.7, 2.1, 2.7, 3.1, 3.3, 3.4, 3.4, 8.2, 12.9, 14.5]
 ```
 
 Availability per provider, including what happened outside these runs:
-- **Mistral**: no retry in the first round (2 November). On the night of 13
-  November, the free tier answered 2 requests, then made the agent wait
-  about 60 s, again and again: about 30 retries per model, every task 3 to 10
-  times slower, and 7 runs stopped by the agent's time budget (2.1). The
-  replies themselves stayed fast (0.7 to 1.7 s). `mistral-small-latest` and
+- **Mistral**: no retry in the first round (2 November). On 13 November, in
+  two separate sessions (03:07 to 07:12 and 09:20 to 10:35), the free tier
+  answered 2 requests, then made the agent wait about 60 s, again and again:
+  25 to 33 retries per model, every task 3 to 10 times slower. The replies
+  themselves stayed fast (0.7 to 1.6 s). At this rate a run gets about 20
+  iterations in the agent's 540 s budget. A task that a model solves in
+  fewer iterations passes; a task that needs more cannot finish, whatever the
+  model. That is what happened in all 5 Mistral failures of 2.1, twice each. `mistral-small-latest` and
   `mistral-medium-latest` returned 429 with a limit of 0 requests per minute
   on our key, and `mistral-large-4` failed with HTTP 400 (section 1.1).
 - **Google**: the free tier is limited per model. `gemini-3.1-flash-lite`
@@ -438,13 +444,13 @@ Availability per provider, including what happened outside these runs:
   time. `gemini-3-flash-preview` and `gemini-3.5-flash` ran out of daily
   quota after about two tasks (2.3), `gemini-3.6/3.7/3.8-flash` had no quota
   at all, and `gemini-2.5-flash` answered 404.
-- **NVIDIA**: on 11 November the catalogue (`integrate.api.nvidia.com`)
-  answered many requests with 401 or 404 and took 60 to 180 s per reply, so
-  no run was made. From 13 November it answered normally. Its models range
-  from 1.2 s per request (`nemotron-3.5-bolt-e4b`) to 14.5 s
-  (`muse-glimmer-30b`). Many listed models are not callable (section 1.1).
-  The deployed models answer only while their deployment runs, and one
-  (`DeepSeek-R1-Distill-Qwen-32B`) returned 403 on every request.
+- **NVIDIA**: the catalogue (`integrate.api.nvidia.com`) answered every
+  request of the runs of 2.1, with 1 to 43 retries per model. Its models
+  range from 1.2 s per request (`nemotron-3.5-bolt-e4b`) to 14.5 s
+  (`muse-glimmer-30b`). Some listed models are not callable through the API
+  (section 1.1). The deployed models answer only while their deployment
+  runs, and one listed model (`DeepSeek-R1-Distill-Qwen-32B`) refused every
+  request with HTTP 403 and no reason given.
 
 ## 4. Intermediary metrics
 
@@ -461,15 +467,15 @@ final patch (read, search or edit), and first `edit_file` call on that file
 |---|---|---|
 | nemotron-3.5-super-120b | 1 / 1 / 1 / 1 / 2 / 2 / 2 | 2 / 2 / 11 / 2 / 4 / 4 / 3 |
 | mistral-large-4-1t | 3 / 2 / 3 / 2 / 4 / 3 / 5 | 4 / 6 / 7 / 3 / 8 / 4 / 6 |
+| ministral-14b-latest | 1 / 2 / 2 / 1 / 2 / 1 / 3 | 2 / 3 / 12 / 9 / 8 / 3 / 6 |
 | cydonia-24b-v4.3 | 1 / 1 / 2 / 1 / 2 / 2 / 2 | 2 / 7 / 5 / 4 / 3 / 5 / 5 |
 | laguna-xs-2.1 | 1 / 5 / 3 / 2 / 3 / 1 / 2 | 2 / 7 / 15 / 3 / 7 / 2 / 3 |
 | gemini-3.1-flash-lite | 1 / 3 / 1 / 1 / 2 / 3 / 3 | 4 / 4 / 11 / 4 / 14 / 4 / 4 |
+| codestral-latest | 2 / 2 / 2 / 2 / 2 / 2 / 2 | 3 / 4 / 7 / 5 / 6 / 3 / 3 |
 | qwen2.5-coder-32b-instruct | 1 / 3 / 2 / 1 / – / 1 / 2 | 2 / 4 / 3 / 2 / – / 2 / 4 |
-| ministral-14b-latest | 1 / 2 / 2 / 1 / 2 / 1 / 3 | 2 / 3 / 12 / 4 / 8 / 3 / 6 |
 | nemotron-3.5-bolt-e4b | 2 / 1 / 2 / 3 / 2 / 2 / 2 | 3 / 5 / 4 / 4 / 3 / 6 / 5 |
 | minimax-m3.1-flash | 1 / 1 / – / 1 / 2 / 2 / 1 | 4 / 3 / – / 2 / 16 / 4 / 6 |
 | gemini-3.5-flash-lite | 2 / 1 / – / 2 / 2 / 1 / 2 | 3 / 3 / – / 3 / 10 / 2 / 3 |
-| codestral-latest | 2 / 2 / 2 / 2 / 2 / 2 / – | 3 / 4 / 7 / 5 / 6 / 3 / – |
 | ministral-3b-latest | 1 / 1 / – / 1 / 2 / 1 / – | 2 / 5 / – / 7 / 8 / 3 / – |
 | ministral-8b-latest | 1 / 1 / – / 2 / 2 / 1 / 2 | 2 / 4 / – / 3 / 15 / 3 / 5 |
 | qwen2.5-coder-32b-abliterated | 1 / 1 / 1 / 2 / 2 / 2 / – | 2 / 2 / 5 / 3 / 3 / 3 / – |
@@ -478,7 +484,7 @@ final patch (read, search or edit), and first `edit_file` call on that file
 | llama3.3-8b-thinking | 1 / 2 / – / – / – / – / – | 5 / 4 / – / – / – / – / – |
 
 Every model that produces a patch mentions its file within the first 5 steps,
-and 94 of the 97 runs with a patch within the first 3, so finding the file
+and 95 of the 98 runs with a patch within the first 3, so finding the file
 does not separate the models. The difference is between the first mention
 and the first edit on the long tasks: on sympy-14711 (step 11 or later for
 `nemotron-3.5-super-120b`, `gemini-3.1-flash-lite`, `ministral-14b-latest`
@@ -495,15 +501,15 @@ exception, and the `final_answer` iteration. 0 means the agent submits at once.
 |---|---|---|---|---|---|---|---|
 | nemotron-3.5-super-120b | 0 | 0 | 0 | 0 | 3 | 3 | 0 |
 | mistral-large-4-1t | 0 | 0 | 0 | 0 | 0 | 0 | 2 |
+| ministral-14b-latest | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | cydonia-24b-v4.3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | laguna-xs-2.1 | 0 | 1 | 6 | 0 | 11 | 2 | 1 |
 | gemini-3.1-flash-lite | 0 | 0 | not detected | 0 | not detected | 0 | 0 |
+| codestral-latest | 0 | 0 | no passing test run | 0 | 0 | 0 | 0 |
 | qwen2.5-coder-32b-instruct | 0 | 0 | 0 | 0 | empty patch submitted | 0 | 0 |
-| ministral-14b-latest | 0 | 0 | 0 | no passing test run | 0 | 0 | 0 |
 | nemotron-3.5-bolt-e4b | 0 | 1 | 0 | 0 | 0 | 1 | no passing test run |
 | minimax-m3.1-flash | 1 | 0 | no passing test run | 0 | 0 | 0 | 2 |
 | gemini-3.5-flash-lite | 0 | 0 | no passing test run | 0 | 2 | 0 | 3 |
-| codestral-latest | 0 | 0 | no passing test run | 0 | 0 | 0 | no passing test run |
 | ministral-3b-latest | 0 | 0 | no passing test run | 0 | 0 | 0 | no passing test run |
 | ministral-8b-latest | 0 | 0 | no passing test run | 0 | no passing test run | 0 | 0 |
 | qwen2.5-coder-32b-abliterated | 0 | 0 | no passing test run | 0 | 0 | 0 | no passing test run |
@@ -658,8 +664,8 @@ the block that runs the tests needs one iteration less by construction.
 **SWE-bench: selected model `gemini-3.1-flash-lite`.**
 - 7/7 on the 7 tasks of 2.1, 3/3 in the first round (2.2), and 6/6 on the
   exam pool with the code of 7 November (8.3).
-- Free tier on our keys, and the only 7/7 model on a provider that worked
-  every time we used it, with no setup (section 3).
+- Free tier on our keys, 2 retries in 86 requests, and no setup beyond the
+  key (section 3).
 - It is the default model of both agents, so the exam scripts run it without
   extra flags.
 - Caveats: about 3.1 s per request, about 15 requests per minute on the free
@@ -676,18 +682,27 @@ the block that runs the tests needs one iteration less by construction.
   (4.2).
 - `cydonia-24b-v4.3`: a role-play fine-tune (section 10.7).
 
-They are not selected because the NVIDIA catalogue was unusable on 11
-November and many listed models are not callable (section 3): a model that
-works one night may not answer during an evaluation. The deployed models
-(Cydonia) also need a deployment started by hand.
+They are not selected for the exam. Each of them has one run per task, none
+of them with the exam scripts, while `gemini-3.1-flash-lite` passed the exam
+pool with the exam scripts (8.3) and is the agents' default. NVIDIA's API is
+free development access, and some listed models are not callable through it
+(section 1.1). The deployed models (Cydonia) also need a deployment started
+by hand. Repeated clean runs on other days would make
+`nemotron-3.5-super-120b` a candidate.
 
 **Runner-up on Google: `gemini-3.5-flash-lite`.** 6/7 and fast (1.3 s per
 request), but fails sympy-14711 and costs about 3 times more per solved task
 than gemini-3.1-flash-lite at list prices (section 9).
 
-**Mistral models**: 5 to 6/7, but all their failures in 2.1 are
-rate-limit timeouts, so 2.1 does not rank them. In the first round
-`ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
+**Mistral models**: `ministral-14b-latest` 7/7, `codestral-latest` 6/7,
+`ministral-8b-latest` and `ministral-3b-latest` 5/7. All their remaining
+failures are rate-limit timeouts, reproduced twice (section 3). With
+Mistral's free tier as it was on 13 November, a task that needs more than
+about 20 iterations cannot be completed within the time limit, whatever the
+model: sympy-14711, which takes 8 to 28 iterations for the models that pass
+it, failed for 3 of the 4 Mistral models. For the exam, these models are
+usable only on tasks they solve in few iterations. In the first round, with
+no rate limit, `ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
 `codestral-latest` hit the input token cap on sympy-14711 and
 `ministral-3b-latest` looped on failed edits.
 
@@ -731,7 +746,7 @@ or after a `kill -9` of the agent (8.4).
 
 **Limits of this report**: almost every cell is a single run with no variance
 estimate. The runs of 2.1 were made on three versions of the code (table 1.3).
-7 Mistral runs failed on the provider's rate limit, not on the model. The
+5 Mistral cells fail on the provider's rate limit, not on the model. The
 SWE-bench comparison covers 3 providers.
 
 ## 7. MBPP check (moulinette `run-agent`)
@@ -896,10 +911,10 @@ failed runs count against the model)
 |---|---|---|---|---|---|
 | nemotron-3.5-super-120b | 7/7 | 222,969 | 6,742 | 31,853 | 7.9 |
 | mistral-large-4-1t | 7/7 | 223,199 | 5,582 | 31,886 | 9 |
+| codestral-latest | 6/7 | 210,174 | 2,586 | 35,029 | 8.3 |
+| ministral-14b-latest | 7/7 | 255,174 | 3,858 | 36,453 | 9.4 |
 | qwen2.5-coder-32b-instruct | 6/7 | 250,321 | 3,325 | 41,720 | 9.4 |
 | cydonia-24b-v4.3 | 7/7 | 308,083 | 4,164 | 44,012 | 11.1 |
-| ministral-14b-latest | 6/7 | 275,955 | 4,358 | 45,992 | 10.1 |
-| codestral-latest | 5/7 | 250,483 | 2,982 | 50,097 | 9.6 |
 | laguna-xs-2.1 | 7/7 | 374,676 | 4,815 | 53,525 | 11.9 |
 | ministral-3b-latest | 5/7 | 269,846 | 5,286 | 53,969 | 10.4 |
 | nemotron-3.5-bolt-e4b | 6/7 | 324,737 | 4,951 | 54,123 | 10.3 |
@@ -915,9 +930,9 @@ failed runs count against the model)
 ```mermaid
 xychart-beta
     title "Input tokens per solved task (thousands, section 2.1)"
-    x-axis ["nemo-120b", "mistral-l4", "qwen-32b", "cydonia", "minis-14b", "codestral", "laguna", "minis-3b", "nemo-e4b", "gem-3.1-fl", "minis-8b", "minimax", "qwen-abl", "gem-3.5-fl", "muse-30b"]
+    x-axis ["nemo-120b", "mistral-l4", "codestral", "minis-14b", "qwen-32b", "cydonia", "laguna", "minis-3b", "nemo-e4b", "gem-3.1-fl", "minis-8b", "minimax", "qwen-abl", "gem-3.5-fl", "muse-30b"]
     y-axis "Thousand tokens" 0 --> 75
-    bar [31.9, 31.9, 41.7, 44.0, 46.0, 50.1, 53.5, 54.0, 54.1, 55.5, 58.5, 65.2, 67.8, 68.6, 69.9]
+    bar [31.9, 31.9, 35.0, 36.5, 41.7, 44.0, 53.5, 54.0, 54.1, 55.5, 58.5, 65.2, 67.8, 68.6, 69.9]
 ```
 
 Input tokens are 96 to 99 % of the tokens of every model: the agent re-sends
@@ -931,8 +946,8 @@ example 183,007 against 18,358 for gemini-3.5-flash-lite).
 - `gemini-3-flash-preview`, `gemini-3.5-flash`: about 2 tasks per day, so 7
   tasks would take 3 to 4 days per model.
 - Mistral: no limit reached on 2 November; on 13 November about 2 requests per
-  minute, which turned 7 tasks into 37 to 40 minutes per model and stopped 7
-  runs (section 3).
+  minute in two sessions, which turned 7 tasks into 37 to 40 minutes per model
+  and limits a run to about 20 iterations (section 3).
 - NVIDIA: no limit reached; the constraint is that the model must be callable
   (catalogue) or its deployment running (deployed).
 
@@ -943,10 +958,10 @@ development with no price on NVIDIA's side, so they have no row.
 | Model | Price per million tokens (input / output) | Cost of its 7 runs | Cost per solved task |
 |---|---|---|---|
 | ministral-3b-latest | $0.10 / $0.10 (Ministral 3 3B) | $0.028 | $0.006 |
-| gemini-3.1-flash-lite | $0.125 / $0.75 | $0.055 | $0.008 |
+| ministral-14b-latest | $0.20 / $0.20 (Ministral 3 14B) | $0.052 | $0.007 |
+| gemini-3.1-flash-lite | $0.125 / $0.75 | $0.054 | $0.008 |
 | ministral-8b-latest | $0.15 / $0.15 (Ministral 3 8B) | $0.045 | $0.009 |
-| ministral-14b-latest | $0.20 / $0.20 (Ministral 3 14B) | $0.056 | $0.009 |
-| codestral-latest | $0.30 / $0.90 | $0.078 | $0.016 |
+| codestral-latest | $0.30 / $0.90 | $0.065 | $0.011 |
 | gemini-3.5-flash-lite | $0.30 / $2.50 | $0.138 | $0.023 |
 
 Price sources: Google's Gemini 3.5 Flash-Lite page
@@ -957,7 +972,7 @@ the `-latest` Ministral names are billed as the Ministral 3 models of the
 same size. The Mistral costs per solved task are upper bounds, since their
 failures in 2.1 are rate-limit timeouts.
 
-At these prices all the SWE-bench runs of these six models would cost about
+At these prices all the SWE-bench runs of these six models would cost under
 40 cents. On a paid plan the choice between them would follow the pass rate,
 not the price; on the free tier it follows the quota.
 
@@ -982,15 +997,15 @@ hurts, but it is the opposite of a gain on an agent task.
 |---|---|---|---|---|
 | nemotron-3.5-super-120b | 12 | 4 | 1 | 0 |
 | mistral-large-4-1t | 7 | 0 | 0 | 0 |
+| ministral-14b-latest | 13 | 5 | 4 | 1 |
 | cydonia-24b-v4.3 | 23 | 15 | 10 | 5 |
 | laguna-xs-2.1 | 9 | 1 | 0 | 0 |
 | gemini-3.1-flash-lite | 17 | 4 | 4 | 0 |
+| codestral-latest | 17 | 9 | 4 | 5 |
 | qwen2.5-coder-32b-instruct | 22 | 14 | 9 | 0 |
-| ministral-14b-latest | 21 | 6 | 4 | 1 |
 | nemotron-3.5-bolt-e4b | 28 | 17 | 14 | 2 |
 | minimax-m3.1-flash | 8 | 1 | 1 | 0 |
 | gemini-3.5-flash-lite | 9 | 1 | 1 | 0 |
-| codestral-latest | 21 | 11 | 6 | 5 |
 | ministral-3b-latest | 16 | 11 | 5 | 6 |
 | ministral-8b-latest | 20 | 7 | 5 | 1 |
 | qwen2.5-coder-32b-abliterated | 50 | 43 | 23 | 15 |
@@ -1048,14 +1063,16 @@ comparable.
 
 | Model | 2.2 (2 November) | 8.2 (6 November) | 2.1 (13 November) |
 |---|---|---|---|
-| ministral-8b-latest | PASS, 20 iterations | FAIL, 30 iterations | FAIL, rate limit |
+| ministral-8b-latest | PASS, 20 iterations | FAIL, 30 iterations | FAIL, rate limit (twice) |
 | ministral-14b-latest | PASS at step 30, by the fallback | not run | PASS, 16 iterations |
-| codestral-latest | FAIL, input token cap | not run | FAIL, rate limit |
-| ministral-3b-latest | FAIL, invalid patch | not run | FAIL, rate limit |
+| codestral-latest | FAIL, input token cap | not run | FAIL, rate limit (twice) |
+| ministral-3b-latest | FAIL, invalid patch | not run | FAIL, rate limit (twice) |
 | gemini-3.1-flash-lite | PASS, 21 iterations | PASS, 28 iterations (8.3) | same run as 8.3 |
 
 `gemini-3.1-flash-lite` on scikit-learn-13439 also took 12 to 21 iterations
-over 6 runs with identical code (5.2). With one run per cell, a difference of
+over 6 runs with identical code (5.2), and `ministral-14b-latest` on
+django-11066 took 16 iterations (rate-limit timeout) then 11 (PASS) on the
+same day and code. With one run per cell, a difference of
 one task between two models is within this variance.
 
 **10.7 A role-play model is a good agent here.** `cydonia-24b-v4.3` is a
@@ -1091,23 +1108,29 @@ using the full 400 tokens: its reasoning filled the cap before any answer. On
 sympy-14711 this happened in 13 of its 30 replies. It ran out of
 iterations on that task. `mistral-large-4-1t` returned 12 empty replies too,
 11 of them short (29 to 111 tokens), and recovered each time with the next
-message. The same cap made `mistral-large-4` unusable on Mistral's own API
-(1.1). For reasoning models the cap trades lost iterations against the
+message. On Mistral's own API, a test of `mistral-large-4` put 399 of its 400
+tokens into reasoning (1.1). For reasoning models the cap trades lost iterations against the
 output token limit of 10,000.
 
 **10.10 Same model, different provider.** `mistral-large-4` failed at step 2
 with HTTP 400 on Mistral's API (1.1) and passed 7/7 on NVIDIA's catalogue,
-with the same agent. The provider's response format matters as much as the
-model: on Mistral's API the answer came back as a list of blocks with the
-reasoning first; on NVIDIA's the agent received plain text it could read.
+with the same agent. One difference is the response format: on Mistral's API
+the answer came back as a list of blocks with the reasoning first, on
+NVIDIA's as plain text. We did not establish whether the 400 came from
+Mistral or from the way our agent sent the block-format reply back in the
+next request, so this says that the same model can be usable through one
+provider's API and not another's, not which side caused it.
 
-**10.11 A provider limit is not a model result.** The 7 Mistral failures of
-2.1 are the clearest example: the replies took 0.7 to 1.7 s, but the runs
-spent most of their time waiting for the quota, and stopped after 16 to 20
-iterations. Counting them as model failures puts `ministral-8b-latest`,
-`codestral-latest` and `ministral-3b-latest` at 5/7, level with
-`qwen2.5-coder-32b-abliterated` and `muse-glimmer-30b`, on data that only
-measures the provider.
+**10.11 A provider limit is not a model result.** The 5 Mistral failures of
+2.1 are the clearest example: the replies took 0.7 to 1.6 s, but the runs
+spent most of their time waiting for the quota and stopped after 17 to 21
+iterations, in both attempts. Which tasks fail depends on how many
+iterations a model needs for them, not on whether it can solve them: on the
+free tier, `ministral-8b-latest` and `ministral-3b-latest` end at 5/7, level
+with `qwen2.5-coder-32b-abliterated` and `muse-glimmer-30b`, on data that
+measures the provider. The result still matters for the exam, which runs on
+the same free tier: a Mistral model there can only pass the tasks it solves
+in about 20 iterations.
 
 ## Reproducing
 
@@ -1144,5 +1167,5 @@ Details needed to reproduce a row:
   `rootlesskit bash` on the 42 machines.
 
 The backing `solution.json` files are in `bench/` (2.2), `bench/final/` (2.1),
-`bench/partial/` (2.3), `bench/exam_pool_nov6/` (8.2) and `bench/ablation/`
-(5.2).
+`bench/partial/` (2.3), `bench/rerun/` (both attempts of the Mistral cells
+of 2.1), `bench/exam_pool_nov6/` (8.2) and `bench/ablation/` (5.2).
