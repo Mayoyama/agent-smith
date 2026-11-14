@@ -1,5 +1,21 @@
 # Benchmark Report
 
+**Abstract.** We benchmark Agent Smith, a Thought → Code → Observation agent
+with MCP tools, on 7 SWE-bench Verified tasks with 20 models from 5 providers
+(Google, Mistral, NVIDIA, Groq, Cohere): 140 runs with identical prompt, tools
+and limits, each validated by the moulinette. 104 runs pass, and 6 models
+solve all 7 tasks. `gemini-3.1-flash-lite` is selected for the exam (7/7, free
+tier, agent default); `nemotron-3.5-super-120b` solves 7/7 with the fewest
+input tokens per solved task. 7 of the 36 failures are free-tier rate-limit
+timeouts (Mistral, Groq), which measure the provider rather than the model.
+Among the findings: what a model was trained for matters more than its size
+(two 4-8B models score 0/7 while a 4B one scores 6/7), a served chat template
+can hide the agent's instructions, and the same model can work through one
+provider's API and fail through another's. Three ablations are reported; in
+the third, a one-step MBPP prompt halves the iterations and input tokens on
+the same 20 tasks with no loss in pass rate. All runs used free tiers; at list
+prices the priced runs would cost about $1.53.
+
 > Each cell is a single run, so there is no variance estimate, except where a
 > section says otherwise (5.2, 10.6).
 
@@ -15,8 +31,7 @@ uses its own default.
 
 The report has two rounds of SWE-bench runs:
 - **Main comparison (section 2.1)**: 20 models, 5 providers, the same 7
-  tasks. One cell, `qwen3.8-27b` on sympy-14711, is still to be run (Groq's
-  daily token quota). Backing files in `bench/final/`.
+  tasks, 140 runs. Backing files in `bench/final/`.
 - **First round (section 2.2)**: 5 models, 2 providers, 3 tasks, produced
   before the multi-format tool-call extraction (`agent/extract.py`) was added
   to the agent, and not re-run with it. Backing files in `bench/first_round/`.
@@ -45,7 +60,7 @@ The runs of 2.1 were not all made with the same version of the code. Table
 | NVIDIA, deployed | `TheDrummer/Cydonia-24B-v4.3` (`cydonia-24b-v4.3`) | TheDrummer, community fine-tune of Mistral Small 24B | 7 |
 | NVIDIA, deployed | `DavidAU/Llama3.3-8B-Instruct-Thinking-Heretic-Uncensored-Claude-4.5-Opus-High-Reasoning` (`llama3.3-8b-thinking`) | DavidAU, community fine-tune of a Llama (Meta) model | 7 |
 | NVIDIA, deployed | `nvidia/Riva-Translate-4B-Instruct` (`riva-translate-4b`) | NVIDIA, translation model | 7 |
-| Groq | `qwen/qwen3.8-27b` (`qwen3.8-27b`) | Alibaba (Qwen team) | 6 (sympy-14711 to be run) |
+| Groq | `qwen/qwen3.8-27b` (`qwen3.8-27b`) | Alibaba (Qwen team) | 7 |
 | Cohere | `command-a-03-2025` | Cohere | 7 |
 | Cohere | `command-r7b-12-2024` | Cohere | 7 |
 | Google (Gemini) | `gemini-3-flash-preview` | Google | 2, stopped by the free quota (2.3) |
@@ -124,6 +139,7 @@ iterations, where most other runs take 4 to 12 (section 2.1).
 | `gemini-3.5-flash-lite`, 6 pool tasks | 12 November, 03:13 to 03:21 | between `2ea343b` and `09b1014` |
 | All runs on `django-11099`, all NVIDIA and Mistral models | 13 November, 00:16 to 10:35 | commit `9805ceb` (plus the NVIDIA entry of `models_config.json`) |
 | Groq and Cohere models | 13 November, 13:23 to 15:58, on a 42 computer (inside `rootlesskit`) | commit `1dcd563` (same agent code as `9805ceb`) |
+| `qwen3.8-27b` on sympy-14711 | 14 November, 01:53 to 02:03, after Groq's daily quota reset | same agent code as `1dcd563` |
 
 Between `3c7d559` and `9805ceb`: the tool paths starting with `/testbed` are
 mapped to the repository root and `final_answer` no longer raises
@@ -154,7 +170,7 @@ not the agent's own `success` field.
 | command-a-03-2025 | Cohere | PASS | PASS | fail | PASS | PASS | PASS | PASS | 6/7 |
 | minimax-m3.1-flash | NVIDIA (catalogue) | PASS | PASS | fail | PASS | PASS | PASS | PASS | 6/7 |
 | gemini-3.5-flash-lite | Google | PASS | PASS | fail | PASS | PASS | PASS | PASS | 6/7 |
-| qwen3.8-27b | Groq | PASS | PASS | not run yet | PASS | fail (rate limit) | PASS | PASS | 5/6 |
+| qwen3.8-27b | Groq | PASS | PASS | fail (rate limit) | PASS | fail (rate limit) | PASS | PASS | 5/7 |
 | ministral-3b-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | PASS | PASS | fail (rate limit) | 5/7 |
 | ministral-8b-latest | Mistral | PASS | PASS | fail (rate limit) | PASS | fail (rate limit) | PASS | PASS | 5/7 |
 | qwen2.5-coder-32b-abliterated | NVIDIA (NIM, deployed) | PASS | PASS | fail | PASS | PASS | PASS | fail | 5/7 |
@@ -170,17 +186,16 @@ VI.1). The night runs gave 7 such failures; all 7 were run again later
 that morning. 2 passed (`ministral-14b-latest` on django-11066, `codestral-latest`
 on django-11099) and replace the night runs in the grid; the other 5 hit the
 same limit a second time. Both runs of each cell are in `bench/rerun/`.
-`qwen3.8-27b` on scikit-learn-13439 is the same case on Groq: its free tier
+The two `qwen3.8-27b` failures are the same case on Groq: its free tier
 allows 8,000 tokens per minute, so from step 3 every step waited about 30 s
-(2 retries), and the run stopped at 19 iterations and 548 s with no patch.
-"not run yet": `qwen3.8-27b` on sympy-14711, to be run when Groq's daily
-token quota (200,000 per model) resets.
+(2 retries). On scikit-learn-13439 and sympy-14711 the runs stopped at 19
+iterations (548 s and 573 s, 34 retries each) with no patch.
 
 ```mermaid
-xychart-beta
-    title "SWE-bench tasks passed out of 7 (qwen3.8 out of 6)"
-    x-axis ["nemo-120b", "mistral-l4", "minis-14b", "cydonia", "laguna", "gem-3.1-fl", "codestral", "qwen-32b", "nemo-e4b", "cmd-a", "minimax", "gem-3.5-fl", "qwen3.8", "minis-3b", "minis-8b", "qwen-abl", "muse-30b", "cmd-r7b", "riva-4b", "llama-8b"]
-    y-axis "Tasks passed" 0 --> 7
+xychart-beta horizontal
+    title "SWE-bench tasks passed out of 7 (section 2.1)"
+    x-axis ["nemotron-3.5-super-120b", "mistral-large-4-1t", "ministral-14b-latest", "cydonia-24b-v4.3", "laguna-xs-2.1", "gemini-3.1-flash-lite", "codestral-latest", "qwen2.5-coder-32b-instruct", "nemotron-3.5-bolt-e4b", "command-a-03-2025", "minimax-m3.1-flash", "gemini-3.5-flash-lite", "qwen3.8-27b", "ministral-3b-latest", "ministral-8b-latest", "qwen2.5-coder-32b-abliterated", "muse-glimmer-30b", "command-r7b-12-2024", "riva-translate-4b", "llama3.3-8b-thinking"]
+    y-axis "Tasks passed" 0 --> 8
     bar [7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 1, 0, 0]
 ```
 
@@ -274,7 +289,7 @@ Full results:
 | gemini-3.5-flash-lite | django-11099 | PASS | 12 | 46,576 | 616 | 26.0 |
 | qwen3.8-27b | sympy-13480 | PASS | 5 | 17,869 | 250 | 176.6 |
 | qwen3.8-27b | xarray-4629 | PASS | 4 | 16,576 | 130 | 259.1 |
-| qwen3.8-27b | sympy-14711 | not run yet | | | | |
+| qwen3.8-27b | sympy-14711 | FAIL | 19 | 73,326 | 481 | 573.3 |
 | qwen3.8-27b | django-11066 | PASS | 4 | 15,802 | 112 | 119.8 |
 | qwen3.8-27b | scikit-learn-13439 | FAIL | 19 | 72,491 | 691 | 547.8 |
 | qwen3.8-27b | sympy-18189 | PASS | 4 | 17,356 | 178 | 83.5 |
@@ -329,7 +344,7 @@ Full results:
 | llama3.3-8b-thinking | sympy-18189 | FAIL | 30 | 150,239 | 1,964 | 74.1 |
 | llama3.3-8b-thinking | django-11099 | FAIL | 30 | 119,231 | 1,272 | 62.9 |
 
-Pass count: 104 of 139 runs (139 of the 140 cells are run). Every row was validated with the moulinette on its
+Pass count: 104 of 140 runs. Every row was validated with the moulinette on its
 own solution file. The backing files are `bench/final/<model>__<task>.json`,
 with the short model names of the tables.
 
@@ -345,15 +360,18 @@ Notes
 - `muse-glimmer-30b` fails sympy-14711 on `max_time` too, but with 2 retries:
   its replies took 23 s on average in that run, so the time went into the
   model's answers, not into waiting for the quota.
-- sympy-14711 is the task that separates the models. Without the Mistral
-  timeouts, it fails for 5 of the 17 models that pass anything and have run
-  it (`gemini-3.5-flash-lite`, `qwen2.5-coder-32b-abliterated`,
-  `minimax-m3.1-flash`, `muse-glimmer-30b`, `command-a-03-2025`). The models
-  that pass it use 8 to 28 iterations. `command-a-03-2025` adds the number as
+- sympy-14711 is the task that separates the models. Leaving out the 4
+  models that hit a rate limit on it (3 Mistral, 1 Groq), it fails for 6 of
+  the 14 other models that pass any task (`gemini-3.5-flash-lite`,
+  `qwen2.5-coder-32b-abliterated`, `minimax-m3.1-flash`, `muse-glimmer-30b`,
+  `command-a-03-2025`, `command-r7b-12-2024`). The models that pass it use 8
+  to 28 iterations. `command-a-03-2025` adds the number as
   a vector component through `self.frame`, an attribute `Vector` does not
   have, and fails the tests with an `AttributeError`.
 - The Groq runs that pass use 4 to 7 iterations, the fewest of all models,
-  but take 84 to 259 s each, because of the per-minute token limit.
+  but take 84 to 259 s each, because of the per-minute token limit. Its two
+  failures are the two tasks that need the most iterations for the other
+  models.
 - `command-r7b-12-2024` passes only sympy-13480, the shortest task (section
   10.8).
 - The 14711 patches of `nemotron-3.5-super-120b`, `nemotron-3.5-bolt-e4b`,
@@ -445,7 +463,7 @@ replies" are replies with no text at all, which the agent answers with its
 | Cohere | command-a-03-2025 | 75 | 2,191 ms | 0 | 0 |
 | NVIDIA (catalogue) | minimax-m3.1-flash | 132 | 8,244 ms | 43 | 21 |
 | Google | gemini-3.5-flash-lite | 88 | 1,291 ms | 7 | 0 |
-| Groq | qwen3.8-27b | 103 | 554 ms | 60 | 0 |
+| Groq | qwen3.8-27b | 156 | 566 ms | 94 | 0 |
 | Mistral | ministral-3b-latest | 106 | 759 ms | 33 | 0 |
 | Mistral | ministral-8b-latest | 105 | 1,369 ms | 31 | 0 |
 | NVIDIA (NIM, deployed) | qwen2.5-coder-32b-abliterated | 83 | 3,384 ms | 0 | 0 |
@@ -453,7 +471,6 @@ replies" are replies with no text at all, which the agent answers with its
 | Cohere | command-r7b-12-2024 | 191 | 1,348 ms | 8 | 0 |
 | NVIDIA (NIM, deployed) | riva-translate-4b | 210 | 1,711 ms | 0 | 2 |
 | NVIDIA (NIM, deployed) | llama3.3-8b-thinking | 211 | 2,066 ms | 1 | 0 |
-### RELTOTAL [2075, 244] {'NVIDIA': 52, 'Mistral': 115, 'Google': 9, 'Cohere': 8, 'Groq': 60}
 
 First round (section 2.2, files in `bench/first_round/`):
 
@@ -465,15 +482,15 @@ First round (section 2.2, files in `bench/first_round/`):
 | ministral-3b-latest | 68 | 857 ms | 0 |
 | gemini-3.1-flash-lite | 36 | 2,685 ms | 0 |
 
-Availability during the benchmark runs: in 2.1, 2,075 requests and 244
-retries. 115 of the retries are the Mistral throttling below, 60 the Groq
+Availability during the benchmark runs: in 2.1, 2,128 requests and 278
+retries. 115 of the retries are the Mistral throttling below, 94 the Groq
 per-minute limit, 43 `minimax-m3.1-flash`. Every request was answered in the end; the retries are
 waits. In 2.2, 212 requests, 0 retries.
 
 ```mermaid
-xychart-beta
+xychart-beta horizontal
     title "Average response time per request (seconds, section 2.1)"
-    x-axis ["qwen3.8", "codestral", "minis-3b", "nemo-e4b", "laguna", "gem-3.5-fl", "cmd-r7b", "minis-8b", "minis-14b", "riva-4b", "llama-8b", "cmd-a", "cydonia", "gem-3.1-fl", "qwen-32b", "nemo-120b", "qwen-abl", "minimax", "mistral-l4", "muse-30b"]
+    x-axis ["qwen3.8-27b", "codestral-latest", "ministral-3b-latest", "nemotron-3.5-bolt-e4b", "laguna-xs-2.1", "gemini-3.5-flash-lite", "command-r7b-12-2024", "ministral-8b-latest", "ministral-14b-latest", "riva-translate-4b", "llama3.3-8b-thinking", "command-a-03-2025", "cydonia-24b-v4.3", "gemini-3.1-flash-lite", "qwen2.5-coder-32b-instruct", "nemotron-3.5-super-120b", "qwen2.5-coder-32b-abliterated", "minimax-m3.1-flash", "mistral-large-4-1t", "muse-glimmer-30b"]
     y-axis "Seconds" 0 --> 15
     bar [0.6, 0.7, 0.8, 1.2, 1.3, 1.3, 1.3, 1.4, 1.6, 1.7, 2.1, 2.2, 2.7, 3.1, 3.3, 3.4, 3.4, 8.2, 12.9, 14.5]
 ```
@@ -505,9 +522,10 @@ Availability per provider, including what happened outside these runs:
   free tier allows 8,000 tokens per minute and 200,000 per day per model. A
   request carries the whole history (3,000 to 7,000 tokens here), so from
   step 3 every step waited about 30 s: 4 to 8 retries per passing run. That
-  caps a run at about 17 to 19 iterations in the 540 s budget, and
-  scikit-learn-13439 stopped there (2.1). The daily quota allows about 5
-  tasks per day for this model, so its 7 tasks are split over two days.
+  caps a run at about 19 iterations in the 540 s budget, and
+  scikit-learn-13439 and sympy-14711 both stopped there (2.1). The daily quota
+  allows about 5 tasks per day for this model, so its 7 tasks were run over
+  two days.
 - **Cohere**: no rate limit reached with the evaluation key. `command-a-03-2025`
   had no retry in 75 requests (2.2 s per request), `command-r7b-12-2024` 8
   in 191. `command-a-plus-05-2026` answered every request but the second
@@ -538,7 +556,7 @@ final patch (read, search or edit), and first `edit_file` call on that file
 | command-a-03-2025 | 1 / 2 / 2 / 4 / 2 / 2 / 2 | 2 / 8 / 3 / 6 / 5 / 3 / 3 |
 | minimax-m3.1-flash | 1 / 1 / – / 1 / 2 / 2 / 1 | 4 / 3 / – / 2 / 16 / 4 / 6 |
 | gemini-3.5-flash-lite | 2 / 1 / – / 2 / 2 / 1 / 2 | 3 / 3 / – / 3 / 10 / 2 / 3 |
-| qwen3.8-27b | 1 / 1 / not run / 1 / – / 1 / 1 | 2 / 2 / not run / 2 / – / 2 / 2 |
+| qwen3.8-27b | 1 / 1 / – / 1 / – / 1 / 1 | 2 / 2 / – / 2 / – / 2 / 2 |
 | ministral-3b-latest | 1 / 1 / – / 1 / 2 / 1 / – | 2 / 5 / – / 7 / 8 / 3 / – |
 | ministral-8b-latest | 1 / 1 / – / 2 / 2 / 1 / 2 | 2 / 4 / – / 3 / 15 / 3 / 5 |
 | qwen2.5-coder-32b-abliterated | 1 / 1 / 1 / 2 / 2 / 2 / – | 2 / 2 / 5 / 3 / 3 / 3 / – |
@@ -575,7 +593,7 @@ exception, and the `final_answer` iteration. 0 means the agent submits at once.
 | command-a-03-2025 | 0 | 0 | no passing test run | 0 | 0 | 0 | 0 |
 | minimax-m3.1-flash | 1 | 0 | no passing test run | 0 | 0 | 0 | 2 |
 | gemini-3.5-flash-lite | 0 | 0 | no passing test run | 0 | 2 | 0 | 3 |
-| qwen3.8-27b | 0 | 0 | not run yet | 0 | no passing test run | 0 | 1 |
+| qwen3.8-27b | 0 | 0 | no passing test run | 0 | no passing test run | 0 | 1 |
 | ministral-3b-latest | 0 | 0 | no passing test run | 0 | 0 | 0 | no passing test run |
 | ministral-8b-latest | 0 | 0 | no passing test run | 0 | no passing test run | 0 | 0 |
 | qwen2.5-coder-32b-abliterated | 0 | 0 | no passing test run | 0 | 0 | 0 | no passing test run |
@@ -623,8 +641,8 @@ truncated in the tool output.
 ## 5. Ablation study
 
 Three before/after comparisons of a change to the agent. 5.1 is measured on
-existing traces. 5.2 is a re-run with the same task and the same model. 5.3
-compares MBPP batches before and after a prompt change.
+existing traces. 5.2 and 5.3 are re-runs with the same tasks and the same
+model, where only the change differs.
 
 ### 5.1 The `get_patch` fallback (measured on existing traces)
 
@@ -647,8 +665,8 @@ Over the 15 runs: 13 PASS with the fallback, 11 without. The other 13 runs
 are unchanged: 11 end with `final_answer`, and 2 (codestral on sympy-14711,
 ministral-3b on sympy-14711) fail either way.
 
-In the 139 runs of 2.1, the fallback rescues no run: every PASS ends with
-`final_answer`, and the 34 runs that end without one all fail.
+In the 140 runs of 2.1, the fallback rescues no run: every PASS ends with
+`final_answer`, and the 35 runs that end without one all fail.
 
 Limit: this is a counterfactual on fixed traces. A real re-run could behave
 differently because model output is not deterministic. This is why 5.2 re-runs
@@ -693,38 +711,46 @@ seen with `ministral-8b-latest` (empty solution after 12 such answers) did
 not show up with Gemini. The rule stays in the prompt, since it costs 4 lines
 and targets a failure that weaker models do show.
 
-### 5.3 One-step MBPP prompt
+### 5.3 One-step MBPP prompt (re-run)
 
 **Change**: the MBPP prompt asks the model to put its function in a string,
 run the tests and call `final_answer` in the same code block when every test
 passes (`2ea343b`, then `0cb3b81` for the triple-quoted string). Before, the
 model ran the tests in one iteration and submitted in the next.
 
-**Data**: model `gemini-3.1-flash-lite`, tasks drawn by `dump mbpp`
-(section 7), moulinette `run-agent 120` then `validate`.
+**Protocol**: same 20 MBPP tasks (75 464 259 420 117 228 391 453 20 312 421
+240 393 473 106 444 18 90 436 58), same model (`gemini-3.1-flash-lite`), same
+current code and limits, one run per task and condition, moulinette
+`run-agent 120` then `validate`. The only difference is
+`agent_mbpp/prompt.py`: the two-step condition uses the prompt of `ae9d3fe`
+(checked out in a separate worktree), the one-step condition the current one.
+Run on 14 November, two-step from 00:12 to 00:27, one-step from 00:51 to 01:09.
 
-| Condition | Date / code | Tasks | Passed | Avg iterations |
-|---|---|---|---|---|
-| Two-step prompt | 6 November, before `3c7d559` | 20 | 17/20 | about 2.4 |
-| One-step prompt | 12 November, `2ea343b` | 50 | 40/45 run to the end, 45/50 after re-running 5 | 1.7 |
-| One-step prompt, triple-quoted string | 12 November, `0cb3b81` | 20 | 18/20, 20/20 after re-running 2 | 1.2 |
+| | Two-step prompt | One-step prompt |
+|---|---|---|
+| Passed | 20/20 | 20/20 |
+| Avg iterations per task | 2.1 | 1.2 |
+| Tasks done in 1 iteration | 0 | 17 |
+| Avg input tokens per task | 2,002 | 972 |
+| Avg output tokens per task | 281 | 294 |
+| Requests | 45 | 31 |
+| Retries (rate limit) | 3 | 7 |
+| Mean / median time per task | 9.9 s / 7.7 s | 19.3 s / 6.0 s |
 
-Notes
-- In the 50-task batch, 5 agents crashed because files of the repository
-  were edited while the batch ran. They passed when re-run alone. The log is
-  `cache/mbpp_onestep_gemini.log` (40 PASSED, 5 FAILED, 5 without a result).
-- In the last batch, the 2 failures were `max_time` with 0 iterations, caused
-  by the Gemini rate limit, not by the prompt. 13 of the 20 tasks finished in
-  one iteration, with about 947 input and 236 output tokens per task, about
-  16 % of the MBPP token limits.
+The backing files are `bench/ablation/mbpp_prompt/gemini-3.1-flash-lite__mbpp-<id>__<two-step|one-step>.json`.
 
-Result: the change roughly halves the iterations per task (about 2.4 to 1.2)
-without lowering the pass rate (85 % before, 89 to 100 % after).
+Result: the one-step prompt keeps the pass rate (20/20 in both) and needs one
+iteration less on 15 of the 20 tasks, which halves the input tokens per task
+(2,002 to 972), since every iteration re-sends the history. The output tokens
+stay the same: the model writes the same function, only the submission moves
+into the block that runs the tests. The median time drops from 7.7 to 6.0 s;
+the mean rises because of the 7 rate-limit retries of the one-step run (one
+task took 87 s), not because of the prompt.
 
-Limits: the three batches use different random tasks and different commits,
-and there is one batch per condition. It is not a same-task comparison like
-5.2: the iteration count is the main signal, since a prompt that submits in
-the block that runs the tests needs one iteration less by construction.
+Limits: one run per task and condition, on one model. The gain in iterations
+is partly by construction (a prompt that submits in the block that runs the
+tests needs one iteration less when the tests pass on the first try); what
+the re-run measures is that this does not cost correctness.
 
 ## 6. Conclusions
 
@@ -774,10 +800,10 @@ no rate limit, `ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
 `ministral-3b-latest` looped on failed edits.
 
 **Groq and Cohere**
-- `qwen3.8-27b` (Groq): 5/6 so far, every pass in 4 to 7 iterations with the
-  fewest tokens per solved task after the two best NVIDIA models (33,273). Its
-  failure is a Groq rate-limit timeout, the same case as Mistral's. It is
-  also the MBPP model of section 7.
+- `qwen3.8-27b` (Groq): 5/7, every pass in 4 to 7 iterations, the fewest of
+  all models. Its two failures are Groq rate-limit timeouts on the two
+  longest tasks, the same case as Mistral's. It is also the MBPP model of
+  section 7.
 - `command-a-03-2025` (Cohere): 6/7 with no rate limit, but the most
   expensive model per solved task at list prices ($0.153, section 9).
 - `command-r7b-12-2024` (Cohere): 1/7 (section 10.8).
@@ -802,7 +828,7 @@ no rate limit, `ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
 
 **The `get_patch` fallback matters for weak models**: 13 runs pass with it,
 11 without in 2.2 (section 5.1). It rescues 2 of 15 runs there and none of the
-139 runs of 2.1.
+140 runs of 2.1.
 
 **The `search_code` prompt rule did not matter for Gemini**: scikit-learn-13439
 passes 3 times out of 3 with it and 3 times out of 3 without it, in 12 to 21
@@ -811,9 +837,9 @@ iterations (section 5.2).
 **MBPP: selected model `qwen/qwen3.8-27b` (Groq) in section 7,
 `gemini-3.1-flash-lite` as the default.** Groq: 15/15 on the three series
 of 5 with the code of 7 November, and 37/40 on the two earlier series of 20,
-all above the exam threshold of 4/5. Gemini with the one-step prompt: 18/20
-(20/20 after re-running 2 rate-limited tasks) at 1.2 iterations per task
-(section 5.3). Of the 8 Groq failures analysed in the earlier runs, 4 come
+all above the exam threshold of 4/5. Gemini: 20/20 on the same 20 tasks
+with both prompts, at 1.2 iterations and 972 input tokens per task with the
+current one-step prompt against 2.1 and 2,002 with the old one (section 5.3). Of the 8 Groq failures analysed in the earlier runs, 4 come
 from hidden tests that contradict or are ambiguous with the statement (137,
 452, 461, 229), 2 from the model's behaviour (160, 260), and 2 were agent
 bugs that these runs revealed and that are fixed (286, 393).
@@ -824,8 +850,8 @@ or after a `kill -9` of the agent (8.4).
 
 **Limits of this report**: almost every cell is a single run with no variance
 estimate. The runs of 2.1 were made on three versions of the code (table 1.3).
-5 Mistral cells and 1 Groq cell fail on the provider's rate limit, not on
-the model, and one Groq cell is still to be run. The SWE-bench comparison
+5 Mistral cells and 2 Groq cells fail on the provider's rate limit, not on
+the model. The SWE-bench comparison
 covers 5 providers; Cohere was used with a provisioned evaluation key, not
 its public trial tier (section 1.1).
 
@@ -838,7 +864,7 @@ variance estimate, one model only (`qwen3.8-27b` of section 2.1, here on MBPP). 
 the moulinette's overall result (correctness and metrics). The first three
 rows were measured before the fixes of the audit; the other rows use the code
 of the final branch at the time they were run. The `gemini-3.1-flash-lite`
-batches are in section 5.3.
+MBPP runs are in section 5.3.
 
 | Run | Passed | Max agent time |
 |---|---|---|
@@ -991,11 +1017,11 @@ failed runs count against the model)
 |---|---|---|---|---|---|
 | nemotron-3.5-super-120b | 7/7 | 222,969 | 6,742 | 31,853 | 7.9 |
 | mistral-large-4-1t | 7/7 | 223,199 | 5,582 | 31,886 | 9 |
-| qwen3.8-27b | 5/6 | 166,363 | 1,633 | 33,273 | 7.2 |
 | codestral-latest | 6/7 | 210,174 | 2,586 | 35,029 | 8.3 |
 | ministral-14b-latest | 7/7 | 255,174 | 3,858 | 36,453 | 9.4 |
 | qwen2.5-coder-32b-instruct | 6/7 | 250,321 | 3,325 | 41,720 | 9.4 |
 | cydonia-24b-v4.3 | 7/7 | 308,083 | 4,164 | 44,012 | 11.1 |
+| qwen3.8-27b | 5/7 | 239,689 | 2,114 | 47,938 | 8.9 |
 | laguna-xs-2.1 | 7/7 | 374,676 | 4,815 | 53,525 | 11.9 |
 | ministral-3b-latest | 5/7 | 269,846 | 5,286 | 53,969 | 10.4 |
 | nemotron-3.5-bolt-e4b | 6/7 | 324,737 | 4,951 | 54,123 | 10.3 |
@@ -1011,16 +1037,15 @@ failed runs count against the model)
 | llama3.3-8b-thinking | 0/7 | 892,637 | 11,348 | no solved task | 30 |
 
 ```mermaid
-xychart-beta
+xychart-beta horizontal
     title "Input tokens per solved task (thousands, section 2.1)"
-    x-axis ["nemo-120b", "mistral-l4", "qwen3.8", "codestral", "minis-14b", "qwen-32b", "cydonia", "laguna", "minis-3b", "nemo-e4b", "gem-3.1-fl", "cmd-a", "minis-8b", "minimax", "qwen-abl", "gem-3.5-fl", "muse-30b"]
+    x-axis ["nemotron-3.5-super-120b", "mistral-large-4-1t", "codestral-latest", "ministral-14b-latest", "qwen2.5-coder-32b-instruct", "cydonia-24b-v4.3", "qwen3.8-27b", "laguna-xs-2.1", "ministral-3b-latest", "nemotron-3.5-bolt-e4b", "gemini-3.1-flash-lite", "command-a-03-2025", "ministral-8b-latest", "minimax-m3.1-flash", "qwen2.5-coder-32b-abliterated", "gemini-3.5-flash-lite", "muse-glimmer-30b"]
     y-axis "Thousand tokens" 0 --> 75
-    bar [31.9, 31.9, 33.3, 35.0, 36.5, 41.7, 44.0, 53.5, 54.0, 54.1, 55.5, 57.1, 58.5, 65.2, 67.8, 68.6, 69.9]
+    bar [31.9, 31.9, 35.0, 36.5, 41.7, 44.0, 47.9, 53.5, 54.0, 54.1, 55.5, 57.1, 58.5, 65.2, 67.8, 68.6, 69.9]
 ```
 
 `command-r7b-12-2024` is left out of the chart: its one solved task puts it
-at 826,224 input tokens per solved task. `qwen3.8-27b` is counted on its 6
-runs.
+at 826,224 input tokens per solved task.
 
 Input tokens are 96 to 99 % of the tokens of every model: the agent re-sends
 the whole history at each iteration, so a failed run that reaches 30
@@ -1037,9 +1062,10 @@ example 183,007 against 18,358 for gemini-3.5-flash-lite).
   and limits a run to about 20 iterations (section 3).
 - NVIDIA: no limit reached; the constraint is that the model must be callable
   (catalogue) or its deployment running (deployed).
-- Groq (`qwen3.8-27b`): 8,000 tokens per minute and 200,000 per day. The 6
-  runs used 166,363 input tokens, so about 5 tasks a day fit, and every step
-  after the second waits about 30 s (section 3).
+- Groq (`qwen3.8-27b`): 8,000 tokens per minute and 200,000 per day. The 7
+  runs used 239,689 input tokens, so they were run over two days (about 5
+  tasks a day fit), and every step after the second waits about 30 s
+  (section 3).
 - Cohere: no limit reached with the evaluation key over about 270 requests;
   the key itself expires.
 
@@ -1047,7 +1073,7 @@ example 183,007 against 18,358 for gemini-3.5-flash-lite).
 each model, on 13 November 2026. The NVIDIA models are served free for
 development with no price on NVIDIA's side, so they have no row.
 
-| Model | Price per million tokens (input / output) | Cost of its runs | Cost per solved task |
+| Model | Price per million tokens (input / output) | Cost of its 7 runs | Cost per solved task |
 |---|---|---|---|
 | ministral-3b-latest | $0.10 / $0.10 (Ministral 3 3B) | $0.028 | $0.006 |
 | ministral-14b-latest | $0.20 / $0.20 (Ministral 3 14B) | $0.052 | $0.007 |
@@ -1055,8 +1081,8 @@ development with no price on NVIDIA's side, so they have no row.
 | ministral-8b-latest | $0.15 / $0.15 (Ministral 3 8B) | $0.045 | $0.009 |
 | codestral-latest | $0.30 / $0.90 | $0.065 | $0.011 |
 | gemini-3.5-flash-lite | $0.30 / $2.50 | $0.138 | $0.023 |
-| qwen3.8-27b | $0.80 / $4.00 | $0.140 (6 runs) | $0.028 |
 | command-r7b-12-2024 | $0.0375 / $0.15 | $0.033 | $0.033 |
+| qwen3.8-27b | $0.80 / $4.00 | $0.200 | $0.040 |
 | command-a-03-2025 | $2.50 / $10.00 | $0.916 | $0.153 |
 
 Price sources: Google's Gemini 3.5 Flash-Lite page
@@ -1070,7 +1096,7 @@ Mistral and Groq costs per solved task are upper bounds, since some of their
 failures in 2.1 are rate-limit timeouts.
 
 At these prices all the SWE-bench runs of these nine models would cost about
-$1.50, $0.92 of it for `command-a-03-2025`, which costs about 20 times more
+$1.53, $0.92 of it for `command-a-03-2025`, which costs about 20 times more
 per solved task than `gemini-3.1-flash-lite` for one task less. On a paid plan the choice between them would follow the pass rate,
 not the price; on the free tier it follows the quota.
 
@@ -1089,7 +1115,7 @@ in the file; the original model hit the same error 6 times and then made its
 `old_str` unique. One run per task, so this does not prove that abliteration
 hurts, but it is the opposite of a gain on an agent task.
 
-**10.2 `edit_file` errors.** Over the 139 runs:
+**10.2 `edit_file` errors.** Over the 140 runs:
 
 | Model | `edit_file` calls | Refused | "found N times" | "not found" |
 |---|---|---|---|---|
@@ -1248,8 +1274,8 @@ measures the provider. The result still matters for the exam, which runs on
 the same free tier: a Mistral model there can only pass the tasks it solves
 in about 20 iterations. Groq shows the same effect through a different
 limit, tokens per minute instead of requests: `qwen3.8-27b` passes 5 tasks
-in 4 to 7 iterations and stops at 19 iterations on the one task that needs
-more.
+in 4 to 7 iterations and stops at 19 iterations on the two tasks that need
+more (scikit-learn-13439 and sympy-14711).
 
 ## Reproducing
 
@@ -1287,4 +1313,5 @@ Details needed to reproduce a row:
 
 The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/final/` (2.1),
 `bench/partial/` (2.3), `bench/rerun/` (both attempts of the Mistral cells
-of 2.1), `bench/exam_pool_nov6/` (8.2) and `bench/ablation/` (5.2).
+of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/` (5.2) and
+`bench/ablation/mbpp_prompt/` (5.3).
