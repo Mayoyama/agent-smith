@@ -11,13 +11,15 @@ timeouts (Mistral, Groq), which measure the provider rather than the model.
 Among the findings: what a model was trained for matters more than its size
 (two 4-8B models score 0/7 while a 4B one scores 6/7), a served chat template
 can hide the agent's instructions, and the same model can work through one
-provider's API and fail through another's. Three ablations are reported; in
-the third, a one-step MBPP prompt halves the iterations and input tokens on
-the same 20 tasks with no loss in pass rate. All runs used free tiers; at list
+provider's API and fail through another's. Four ablations are reported: a
+one-step MBPP prompt halves the iterations and input tokens on the same 20
+tasks with no loss in pass rate, and removing the task's `hints_text` from the
+SWE-bench prompt costs no pass in 12 runs but nearly triples the iterations
+on the task whose hints contain the fix. All runs used free tiers; at list
 prices the priced runs would cost about $1.53.
 
 > Each cell is a single run, so there is no variance estimate, except where a
-> section says otherwise (5.2, 10.6).
+> section says otherwise (5.2, 5.4, 10.6).
 
 ## 1. Setup
 
@@ -136,10 +138,10 @@ iterations, where most other runs take 4 to 12 (section 2.1).
 | Group | Date | Code |
 |---|---|---|
 | `gemini-3.1-flash-lite`, 6 pool tasks (also 8.3) | 7 November | commit `3c7d559` |
-| `gemini-3.5-flash-lite`, 6 pool tasks | 12 November, 03:13 to 03:21 | between `2ea343b` and `09b1014` |
-| All runs on `django-11099`, all NVIDIA and Mistral models | 13 November, 00:16 to 10:35 | commit `9805ceb` (plus the NVIDIA entry of `models_config.json`) |
-| Groq and Cohere models | 13 November, 13:23 to 15:58, on a 42 computer (inside `rootlesskit`) | commit `1dcd563` (same agent code as `9805ceb`) |
-| `qwen3.8-27b` on sympy-14711 | 14 November, 01:53 to 02:03, after Groq's daily quota reset | same agent code as `1dcd563` |
+| `gemini-3.5-flash-lite`, 6 pool tasks | 12 November | between `2ea343b` and `09b1014` |
+| All runs on `django-11099`, all NVIDIA and Mistral models | 13 November | commit `9805ceb` (plus the NVIDIA entry of `models_config.json`) |
+| Groq and Cohere models | 13 November, on a 42 computer (inside `rootlesskit`) | commit `1dcd563` (same agent code as `9805ceb`) |
+| `qwen3.8-27b` on sympy-14711 | 14 November, after Groq's daily quota reset | same agent code as `1dcd563` |
 
 Between `3c7d559` and `9805ceb`: the tool paths starting with `/testbed` are
 mapped to the repository root and `final_answer` no longer raises
@@ -147,6 +149,11 @@ mapped to the repository root and `final_answer` no longer raises
 the SWE-bench prompt was reworded without changing its rules (`09b1014`), and
 the sandbox memory limit was corrected (`9805ceb`). Limits and tool set are
 the same.
+
+**Task hints**: every SWE-bench run of sections 2, 3, 4, 8, 9 and 10 sends
+the task's `hints_text` (a field of the subject's `SWEBenchTaskInput`, filled
+by the moulinette) after the issue in the prompt. Commit `b2b5097`, made after
+these runs, removes it; section 5.4 measures the difference.
 
 **Validation**: every solution file is checked with `moulinette_eval validate`
 (correctness + metrics). Pass/Fail in this report is the moulinette result,
@@ -497,7 +504,7 @@ xychart-beta horizontal
 
 Availability per provider, including what happened outside these runs:
 - **Mistral**: no retry in the first round (2 November). On 13 November, in
-  two separate sessions (03:07 to 07:12 and 09:20 to 10:35), the free tier
+  two separate sessions, the free tier
   answered 2 requests, then made the agent wait about 60 s, again and again:
   25 to 33 retries per model, every task 3 to 10 times slower. The replies
   themselves stayed fast (0.7 to 1.6 s). At this rate a run gets about 20
@@ -640,9 +647,9 @@ truncated in the tool output.
 
 ## 5. Ablation study
 
-Three before/after comparisons of a change to the agent. 5.1 is measured on
-existing traces. 5.2 and 5.3 are re-runs with the same tasks and the same
-model, where only the change differs.
+Four before/after comparisons of a change to the agent. 5.1 is measured on
+existing traces. 5.2, 5.3 and 5.4 are re-runs with the same tasks and the
+same model, where only the change differs.
 
 ### 5.1 The `get_patch` fallback (measured on existing traces)
 
@@ -724,7 +731,7 @@ current code and limits, one run per task and condition, moulinette
 `run-agent 120` then `validate`. The only difference is
 `agent_mbpp/prompt.py`: the two-step condition uses the prompt of `ae9d3fe`
 (checked out in a separate worktree), the one-step condition the current one.
-Run on 14 November, two-step from 00:12 to 00:27, one-step from 00:51 to 01:09.
+Run on 14 November, the two-step condition first.
 
 | | Two-step prompt | One-step prompt |
 |---|---|---|
@@ -751,6 +758,53 @@ Limits: one run per task and condition, on one model. The gain in iterations
 is partly by construction (a prompt that submits in the block that runs the
 tests needs one iteration less when the tests pass on the first try); what
 the re-run measures is that this does not cost correctness.
+
+### 5.4 The task hints in the SWE-bench prompt
+
+**Change**: remove the task's `hints_text` from the SWE-bench prompt
+(`agent_swebench/prompt.py`, commit `b2b5097`). Some hints describe the fix,
+so the question is how much of the results of 2.1 they explain.
+
+**Protocol**: the 4 tasks of 2.1 whose `hints_text` is not empty (the other 3,
+xarray-4629, sympy-14711 and django-11099, have none, so their prompt does not
+change), model `gemini-3.1-flash-lite`, 3 runs per task and condition, same
+code and limits. The code is `main` at `a896819`; for the "with hints"
+condition only `agent_swebench/prompt.py` is replaced by its version before
+`b2b5097`. The two conditions alternate (one run of each per round) so that
+a period of rate limiting does not fall on one condition only. Run on 14
+November with `scripts/eval_swebench.sh` (moulinette `run-agent
+900`, then `validate`). The first request of each run is larger with hints
+(for example 3,553 against 2,779 input tokens on sympy-18189), which confirms
+the condition was applied.
+
+| Task | Hints (characters, content) | Pass with / without | Iterations with hints | Iterations without | Avg input tokens with / without |
+|---|---|---|---|---|---|
+| sympy-13480 | 146, the line and the change to make | 3/3 / 3/3 | 6, 6, 7 | 8, 6, 7 | 22,589 / 24,456 |
+| django-11066 | 2,075, a link to the upstream fix and a discussion that names it (`using=db` in `save()`) | 3/3 / 3/3 | 6, 7, 6 | 6, 6, 5 | 26,481 / 19,719 |
+| scikit-learn-13439 | 285, discussion agreeing that `len` should be implemented | 3/3 / 3/3 | 14, 17, 14 | 13, 11, 14 | 66,461 / 52,122 |
+| sympy-18189 | 2,027, the diff of the fix | 3/3 / 3/3 | 8, 7, 10 | 28, 28, 16 | 39,904 / 142,490 |
+| **All** | | **12/12 / 12/12** | **9.0 avg** | **12.3 avg** | **38,859 / 59,697** |
+
+The backing files are `bench/ablation/hints/gemini-3.1-flash-lite__<task>__<with|without>-hints-<n>.json`.
+
+Result: removing the hints costs no pass (12/12 in both conditions). On three
+tasks the iterations stay within the spread between runs, and on django-11066
+the runs without hints use fewer input tokens, since its 2,075 characters of
+hints are re-sent at every step. The difference is sympy-18189, the task whose
+hints contain the diff of the fix: without them, 2 of the 3 runs used 28 of the 30
+iterations and the input tokens were 3.6 times higher. These runs passed, but
+with 2 iterations to spare; a slower provider or a rate limit (section 3)
+would likely make them fail. The hints do not decide whether the agent can
+solve these tasks, but they make sympy-18189 easy.
+
+The content column is read from the task files. It agrees with a peer's report
+(Gabinap, `BENCHMARK_REPORT.md`, "What the agent is given"), whose own no-hints
+ablation with `ministral-14b-2512` also found no effect on the pass rate (16/21
+with and without).
+
+Limits: 3 runs per task and condition, one model. The models that pass
+sympy-18189 in 2.1 use 4 to 9 iterations; part of that may come from the
+hints.
 
 ## 6. Conclusions
 
@@ -833,6 +887,12 @@ no rate limit, `ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
 **The `search_code` prompt rule did not matter for Gemini**: scikit-learn-13439
 passes 3 times out of 3 with it and 3 times out of 3 without it, in 12 to 21
 iterations (section 5.2).
+
+**The task hints help on one task only**: without `hints_text`,
+`gemini-3.1-flash-lite` still passes 12/12, but needs 24 iterations on
+average on sympy-18189 against 8 with the hints (section 5.4). The exam code
+(`main`) sends no hints, so sympy-18189 is the exam task closest to the
+iteration limit.
 
 **MBPP: selected model `qwen/qwen3.8-27b` (Groq) in section 7,
 `gemini-3.1-flash-lite` as the default.** Groq: 15/15 on the three series
@@ -1313,5 +1373,5 @@ Details needed to reproduce a row:
 
 The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/final/` (2.1),
 `bench/partial/` (2.3), `bench/rerun/` (both attempts of the Mistral cells
-of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/` (5.2) and
-`bench/ablation/mbpp_prompt/` (5.3).
+of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/` (5.2),
+`bench/ablation/mbpp_prompt/` (5.3) and `bench/ablation/hints/` (5.4).

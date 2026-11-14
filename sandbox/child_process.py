@@ -69,7 +69,7 @@ def child_process(
         if name not in ("__builtins__", "__name__"):
             process_protections.protected_names.add(name)
 
-    bytes_limit = (get_process_memory_size() 
+    bytes_limit = (get_process_memory_size()
                    + (config.max_memory_mb * 1024 * 1024))
     max_file_bytes = 100 * 1024 * 1024
 
@@ -233,6 +233,7 @@ def make_tool_function(conn: Connection, tool_name: str) -> Callable[..., str]:
         return reply.text
 
     return tool_call_function
+
 
 def get_process_memory_size() -> int:
     """Return the virtual memory size of this process, in bytes.
