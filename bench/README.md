@@ -12,7 +12,9 @@ Backing `solution.json` files of `BENCHMARK_REPORT.md`, named
 | `partial/` | 2.3 | Runs cut by a daily free quota, not counted in the comparison |
 | `first_round/` | 1.1, 2.2, 4.3, 5.1, 8.1 | First round: 5 models on 3 tasks (2 November code), plus the `mistral-large-4` HTTP 400 example |
 | `exam_pool_nov6/` | 8.2 | `ministral-8b-latest` on the 6-task exam pool, 6 November code |
-| `ablation/` | 5.2 | `search_code` rule ablation, 3 runs with and 3 without |
+| `ablation/search_code_rule/` | 5.2 | `search_code` rule ablation: scikit-learn-13439, 3 runs with the rule and 3 without |
+| `ablation/mbpp_prompt/` | 5.3 | MBPP prompt ablation: the same 20 tasks with the two-step and the one-step prompt |
+| `ablation/hints/` | 5.4 | Task hints ablation: 4 tasks, 3 runs with `hints_text` and 3 without |
 
 The code version of each group of runs is in table 1.3 of the report.
 Every file was validated with `moulinette_eval validate`.

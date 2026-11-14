@@ -705,7 +705,7 @@ time.
 | Without the rule | 2 | PASS | 15 | 0 | 73 |
 | Without the rule | 3 | PASS | 12 | 0 | 24 |
 
-The backing files are `bench/ablation/gemini-3.1-flash-lite__scikit-learn-13439__<with|without>-rule-<n>.json`.
+The backing files are `bench/ablation/search_code_rule/gemini-3.1-flash-lite__scikit-learn-13439__<with|without>-rule-<n>.json`.
 
 Result: with `gemini-3.1-flash-lite`, the rule makes no measurable
 difference on this task. All 6 runs pass. The mean is 16.3 iterations with the
@@ -1373,5 +1373,5 @@ Details needed to reproduce a row:
 
 The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/final/` (2.1),
 `bench/partial/` (2.3), `bench/rerun/` (both attempts of the Mistral cells
-of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/` (5.2),
+of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/search_code_rule/` (5.2),
 `bench/ablation/mbpp_prompt/` (5.3) and `bench/ablation/hints/` (5.4).
