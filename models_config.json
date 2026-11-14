@@ -20,10 +20,10 @@
             "base_url": "https://api.mistral.ai/v1",
             "key_prefix": "MISTRAL_API_KEY"
         },
-		{
-			"name": "nvidia",
-			"base_url": "https://integrate.api.nvidia.com/v1",
-			"key_prefix": "NVIDIA_API_KEY"
-		}
+        {
+            "name": "nvidia",
+            "base_url": "https://integrate.api.nvidia.com/v1",
+            "key_prefix": "NVIDIA_API_KEY"
+        }
     ]
 }
