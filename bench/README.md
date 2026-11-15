@@ -3,18 +3,21 @@
 # bench/
 
 Backing `solution.json` files of `BENCHMARK_REPORT.md`, named
-`<model>__<task>.json`. Each folder backs one part of the report.
+`<model>__<task>.json`, with a suffix for repeated runs and ablation
+conditions. Each folder backs one part of the report.
 
 | Folder | Report section | Contents |
 |---|---|---|
 | `final/` | 2.1, 3, 4, 9, 10 | Main comparison: 20 models on 7 SWE-bench tasks |
-| `rerun/` | 2.1 | Both attempts of the cells re-run after a provider rate limit (`__first-run` = first attempt) |
+| `rerun/` | 2.1 | Re-runs of the 7 cells that hit Mistral's rate limit: the second attempt of the 5 that failed again (their first attempt is in `final/`), and both attempts of the 2 that passed (`__first-run` = first attempt) |
 | `partial/` | 2.3 | Runs cut by a daily free quota, not counted in the comparison |
-| `first_round/` | 1.1, 2.2, 4.3, 5.1, 8.1 | First round: 5 models on 3 tasks (2 November code), plus the `mistral-large-4` HTTP 400 example |
+| `first_round/` | 1.1, 2.2, 4.3, 5.1, 8.1 | First round: 5 models on 3 tasks (2 November code), 3 more tasks for `ministral-8b-latest` (8.1), and the `mistral-large-4` HTTP 400 example |
+| `repeated/swebench/` | 2.4 | 4 models, 7 tasks, 3 runs each (`__run<n>`), current code |
+| `repeated/mbpp/` | 2.4 | 4 models on the 20 MBPP tasks of 5.3 |
 | `exam_pool_nov6/` | 8.2 | `ministral-8b-latest` on the 6-task exam pool, 6 November code |
 | `ablation/search_code_rule/` | 5.2 | `search_code` rule ablation: scikit-learn-13439, 3 runs with the rule and 3 without |
 | `ablation/mbpp_prompt/` | 5.3 | MBPP prompt ablation: the same 20 tasks with the two-step and the one-step prompt |
 | `ablation/hints/` | 5.4 | Task hints ablation: 4 tasks, 3 runs with `hints_text` and 3 without |
 
 The code version of each group of runs is in table 1.3 of the report.
-Every file was validated with `moulinette_eval validate`.
+Every run counted in the report was validated with `moulinette_eval validate`.

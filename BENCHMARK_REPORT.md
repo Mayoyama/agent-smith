@@ -15,11 +15,12 @@ provider's API and fail through another's. Four ablations are reported: a
 one-step MBPP prompt halves the iterations and input tokens on the same 20
 tasks with no loss in pass rate, and removing the task's `hints_text` from the
 SWE-bench prompt costs no pass in 12 runs but nearly triples the iterations
-on the task whose hints contain the fix. All runs used free tiers; at list
+on the task whose hints contain the fix. Repeated runs (3 per task) compare
+four candidates on the current code. All runs used free tiers; at list
 prices the priced runs would cost about $1.53.
 
 > Each cell is a single run, so there is no variance estimate, except where a
-> section says otherwise (5.2, 5.4, 10.6).
+> section says otherwise (2.4, 5.2, 5.4, 10.6).
 
 ## 1. Setup
 
@@ -192,7 +193,9 @@ Mistral's free tier made it wait about 60 s after every 2 requests (section
 VI.1). The night runs gave 7 such failures; all 7 were run again later
 that morning. 2 passed (`ministral-14b-latest` on django-11066, `codestral-latest`
 on django-11099) and replace the night runs in the grid; the other 5 hit the
-same limit a second time. Both runs of each cell are in `bench/rerun/`.
+same limit a second time. For these 5, the first attempt is in `bench/final/`
+and the second in `bench/rerun/`; for the 2 that passed, both attempts are in
+`bench/rerun/` (`__first-run` is the first).
 The two `qwen3.8-27b` failures are the same case on Groq: its free tier
 allows 8,000 tokens per minute, so from step 3 every step waited about 30 s
 (2 retries). On scikit-learn-13439 and sympy-14711 the runs stopped at 19
@@ -206,7 +209,8 @@ xychart-beta horizontal
     bar [7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 1, 0, 0]
 ```
 
-Full results:
+<details>
+<summary>Full results: 140 runs, with iterations, tokens and time (click to expand)</summary>
 
 | Model | Task | Pass | Iterations | Input tokens | Output tokens | Time (s) |
 |---|---|---|---|---|---|---|
@@ -351,6 +355,8 @@ Full results:
 | llama3.3-8b-thinking | sympy-18189 | FAIL | 30 | 150,239 | 1,964 | 74.1 |
 | llama3.3-8b-thinking | django-11099 | FAIL | 30 | 119,231 | 1,272 | 62.9 |
 
+</details>
+
 Pass count: 104 of 140 runs. Every row was validated with the moulinette on its
 own solution file. The backing files are `bench/final/<model>__<task>.json`,
 with the short model names of the tables.
@@ -449,12 +455,43 @@ our keys was used, after about two tasks a day. The sympy-14711 run of
 not a model result, so it is not counted. These rows are not used in the
 comparisons. The backing files are `bench/partial/<model>__<task>.json`.
 
-## 3. Provider reliability
+### 2.4 Repeated runs on the current code
 
-Computed from `steps[*].request_time_ms`, `steps[*].retries` and
-`steps[*].llm_output` of the files in `bench/final/` (section 2.1). "Empty
-replies" are replies with no text at all, which the agent answers with its
-"no code block" message.
+Current code (no `hints_text`, section 5.4), 14 and 15 November. SWE-bench:
+the 7 tasks, 3 rounds. MBPP: the 20 tasks of 5.3, one run each.
+
+| SWE-bench | nemotron-3.5-super-120b | gemini-3.1-flash-lite | laguna-xs-2.1 | qwen2.5-coder-32b-instruct |
+|---|---|---|---|---|
+| Passed | 18/21 | 20/21 | 16/21 | 14/20 |
+| Failures (all at 30 iterations) | 18189 ×3 | 18189 ×1 | 18189 ×3, 14711, xarray | 18189 ×2, 13480 ×2, 11099 ×2 |
+| Avg iterations | 11.5 | 12.7 | 18.6 | 14.6 |
+| sympy-14711 iterations | 18, 11, 21 | 29, 24, 11 | 18, 30, 30 | 15, 13, 15 |
+| Retries / requests | 0 / 242 | 21 / 288 | 2 / 392 | 16 / 308 |
+| Avg response time per request | 2.1 s | 5.0 s | 0.9 s | 3.7 s |
+| Avg time per run | 32 s | 84 s | 32 s | 74 s |
+
+| MBPP (20 tasks of 5.3) | Passed |
+|---|---|
+| gemini-3.1-flash-lite | 20/20 (5.3) |
+| qwen3.8-27b (Groq) | 18/20 |
+| laguna-xs-2.1 | 17/20 |
+| qwen2.5-coder-32b-instruct | 14/15 reached the model |
+| nemotron-3.5-super-120b | 14/20 |
+
+- Without hints, sympy-18189 is the hard task: only Gemini passes it (2 of
+  3). With hints, Nemotron passed it in 9 iterations (2.1).
+- Gemini passes the most; Nemotron is faster and never throttled.
+- Nemotron's 6 MBPP failures all stop on the 1,500 output-token limit: its
+  reasoning filled the 400-token reply cap in 22 replies (10.9).
+- `qwen2.5-coder-32b-instruct` is a deployed model (1.1). Its deployment
+  stopped answering during 1 SWE-bench and 5 MBPP runs (`all keys failed`
+  after about 60 s), which are not counted. Too unreliable for the exam.
+- The other failures are wrong code, not limits.
+
+Backing files: `bench/repeated/swebench/` (`<model>__<task>__run<n>.json`) and
+`bench/repeated/mbpp/` (`<model>__mbpp-<id>.json`).
+
+## 3. Provider reliability
 
 | Provider | Model | Requests | Avg response time per request | Retries | Empty replies |
 |---|---|---|---|---|---|
@@ -478,6 +515,11 @@ replies" are replies with no text at all, which the agent answers with its
 | Cohere | command-r7b-12-2024 | 191 | 1,348 ms | 8 | 0 |
 | NVIDIA (NIM, deployed) | riva-translate-4b | 210 | 1,711 ms | 0 | 2 |
 | NVIDIA (NIM, deployed) | llama3.3-8b-thinking | 211 | 2,066 ms | 1 | 0 |
+
+Computed from `steps[*].request_time_ms`, `steps[*].retries` and
+`steps[*].llm_output` of the files in `bench/final/` (section 2.1). "Empty
+replies" are replies with no text at all, which the agent answers with its
+"no code block" message.
 
 First round (section 2.2, files in `bench/first_round/`):
 
@@ -549,6 +591,9 @@ patch, so there is no file to look for.
 final patch (read, search or edit), and first `edit_file` call on that file
 (successful or not).
 
+<details>
+<summary>Table: first mention and first edit, per model and task (click to expand)</summary>
+
 | Model | First mention of the file | First edit |
 |---|---|---|
 | nemotron-3.5-super-120b | 1 / 1 / 1 / 1 / 2 / 2 / 2 | 2 / 2 / 11 / 2 / 4 / 4 / 3 |
@@ -572,6 +617,8 @@ final patch (read, search or edit), and first `edit_file` call on that file
 | riva-translate-4b | – / – / – / – / – / – / – | – / – / – / – / – / – / – |
 | llama3.3-8b-thinking | 1 / 2 / – / – / – / – / – | 5 / 4 / – / – / – / – / – |
 
+</details>
+
 Every model that produces a patch mentions its file within the first 5 steps,
 and 108 of the 112 runs with a patch within the first 3, so finding the file
 does not separate the models. The difference is between the first mention
@@ -585,6 +632,9 @@ necessarily a successful one (section 10.2).
 **4.2 Submission discipline.** Extra iterations between the first
 `run_tests()` whose summary reports passed tests with no failure, error or
 exception, and the `final_answer` iteration. 0 means the agent submits at once.
+
+<details>
+<summary>Table: extra iterations before submitting, per model and task (click to expand)</summary>
 
 | Model | 13480 | 4629 | 14711 | 11066 | 13439 | 18189 | 11099 |
 |---|---|---|---|---|---|---|---|
@@ -608,6 +658,8 @@ exception, and the `final_answer` iteration. 0 means the agent submits at once.
 | command-r7b-12-2024 | 0 | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run |
 | riva-translate-4b | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run |
 | llama3.3-8b-thinking | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run | no passing test run |
+
+</details>
 
 Most models submit within 0 to 2 extra iterations once their tests pass.
 Two stand out: `laguna-xs-2.1` (11 extra iterations on scikit-learn-13439, 6
@@ -894,6 +946,12 @@ average on sympy-18189 against 8 with the hints (section 5.4). The exam code
 (`main`) sends no hints, so sympy-18189 is the exam task closest to the
 iteration limit.
 
+**Repeated runs (2.4)**: on the current code, Gemini passes the most
+(SWE-bench 20/21, MBPP 20/20). `nemotron-3.5-super-120b` passes 18/21 on
+SWE-bench in fewer iterations, with no retry and in about a third of the time,
+but only 14/20 on MBPP. `qwen3.8-27b` on Groq is the closest to Gemini on MBPP
+(18/20).
+
 **MBPP: selected model `qwen/qwen3.8-27b` (Groq) in section 7,
 `gemini-3.1-flash-lite` as the default.** Groq: 15/15 on the three series
 of 5 with the code of 7 November, and 37/40 on the two earlier series of 20,
@@ -1177,6 +1235,9 @@ hurts, but it is the opposite of a gain on an agent task.
 
 **10.2 `edit_file` errors.** Over the 140 runs:
 
+<details>
+<summary>Table: <code>edit_file</code> calls and refusals per model (click to expand)</summary>
+
 | Model | `edit_file` calls | Refused | "found N times" | "not found" |
 |---|---|---|---|---|
 | nemotron-3.5-super-120b | 12 | 4 | 1 | 0 |
@@ -1199,6 +1260,8 @@ hurts, but it is the opposite of a gain on an agent task.
 | command-r7b-12-2024 | 29 | 0 | 0 | 0 |
 | riva-translate-4b | 0 | 0 | 0 | 0 |
 | llama3.3-8b-thinking | 28 | 25 | 3 | 12 |
+
+</details>
 
 `mistral-large-4-1t`, `muse-glimmer-30b`, `laguna-xs-2.1`, `minimax-m3.1-flash`
 and the Gemini models write an `old_str` that matches once on the first or
@@ -1372,6 +1435,6 @@ Details needed to reproduce a row:
   `rootlesskit bash` on the 42 machines.
 
 The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/final/` (2.1),
-`bench/partial/` (2.3), `bench/rerun/` (both attempts of the Mistral cells
-of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/search_code_rule/` (5.2),
+`bench/partial/` (2.3), `bench/repeated/` (2.4), `bench/rerun/` (the re-runs
+of the Mistral cells of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/search_code_rule/` (5.2),
 `bench/ablation/mbpp_prompt/` (5.3) and `bench/ablation/hints/` (5.4).
