@@ -702,7 +702,8 @@ truncated in the tool output.
 
 Five before/after comparisons of a change to the agent. 5.1 is measured on
 existing traces. 5.2 to 5.5 are re-runs with the same tasks and the
-same model, where only the change differs.
+same model, where only the change differs. 5.6 lists three additions that
+showed no meaningful effect.
 
 ### 5.1 The `get_patch` fallback (measured on existing traces)
 
@@ -812,11 +813,10 @@ is partly by construction (a prompt that submits in the block that runs the
 tests needs one iteration less when the tests pass on the first try); what
 the re-run measures is that this does not cost correctness.
 
-### 5.4 The task hints in the SWE-bench prompt
+### 5.4 The task hints in the SWE-bench prompt (re-run)
 
-**Change**: remove the task's `hints_text` from the SWE-bench prompt
-(`agent_swebench/prompt.py`, commit `b2b5097`). Some hints describe the fix,
-so the question is how much of the results of 2.1 they explain.
+**Change**: the prompt carries the task's `hints_text`, an input defined by
+the subject's `SWEBenchTaskInput`. Commit `b2b5097` removes it from the prompt.
 
 **Protocol**: the 4 tasks of 2.1 whose `hints_text` is not empty (the other 3,
 xarray-4629, sympy-14711 and django-11099, have none, so their prompt does not
@@ -840,24 +840,15 @@ the condition was applied.
 
 The backing files are `bench/ablation/hints/gemini-3.1-flash-lite__<task>__<with|without>-hints-<n>.json`.
 
-Result: removing the hints costs no pass (12/12 in both conditions). On three
-tasks the iterations stay within the spread between runs, and on django-11066
-the runs without hints use fewer input tokens, since its 2,075 characters of
-hints are re-sent at every step. The difference is sympy-18189, the task whose
-hints contain the diff of the fix: without them, 2 of the 3 runs used 28 of the 30
-iterations and the input tokens were 3.6 times higher. These runs passed, but
-with 2 iterations to spare; a slower provider or a rate limit (section 3)
-would likely make them fail. The hints do not decide whether the agent can
-solve these tasks, but they make sympy-18189 easy.
+Result: 12/12 with and without the hints. The iteration counts differ on
+sympy-18189, whose hints contain a diff: 8.3 on average with the hints, 24.0
+without. On the other three tasks the difference is within the spread between
+runs. A no-hints ablation in a peer's report [1], with `ministral-14b-2512`,
+also found no effect on the pass rate (16/21 with and without).
 
-The content column is read from the task files. It agrees with a peer's report
-(Gabinap, `BENCHMARK_REPORT.md`, "What the agent is given"), whose own no-hints
-ablation with `ministral-14b-2512` also found no effect on the pass rate (16/21
-with and without).
+No run fetched anything from outside its task.
 
-Limits: 3 runs per task and condition, one model. The models that pass
-sympy-18189 in 2.1 use 4 to 9 iterations; part of that may come from the
-hints.
+Limits: 3 runs per task and condition, one model.
 
 ### 5.5 Edit and test in one turn (re-run)
 
@@ -885,6 +876,23 @@ Average iterations per task:
 The pass rate is unchanged; passing runs are shorter. sympy-18189 does not
 change: its turns go into searching, not into editing and testing. The
 backing files are `bench/ablation/fewer_turns/<model>__<task>__fewerturns-run<n>.json`.
+
+### 5.6 Additions with no meaningful effect
+
+Three additions to the agent, each tested alone with `nemotron-3.5-super-120b`
+on the 6 exam-pool tasks, no `hints_text`. None changed the results beyond the
+spread between runs, so none was kept.
+
+| Addition | Baseline | Runs | Passed | Avg iterations | Without 18189 | Input tokens per run, without 18189 |
+|---|---|---|---|---|---|---|
+| Baseline 2.4 | | 18 | 15 | 12.1 | 8.5 | 33,227 |
+| Prompt rules: reproduce the issue first, read whole functions | 2.4 | 12 | 10 | 13.0 | 9.8 | 40,945 |
+| `edit_file` error lists the line of each match | 2.4 | 12 | 10 | 12.6 | 9.1 | 37,528 |
+| Baseline 5.5 | | 18 | 16 | 9.9 | 6.1 | 23,343 |
+| Note to the model after 8 turns without an edit | 5.5 | 18 | 16 | 10.4 | 6.5 | 27,038 |
+
+Backing files: `bench/ablation/workflow_rules/`, `bench/ablation/edit_line_numbers/`
+and `bench/ablation/stuck_note/`.
 
 ## 6. Conclusions
 
@@ -968,11 +976,8 @@ no rate limit, `ministral-8b-latest` and `ministral-14b-latest` passed 3/3,
 passes 3 times out of 3 with it and 3 times out of 3 without it, in 12 to 21
 iterations (section 5.2).
 
-**The task hints help on one task only**: without `hints_text`,
-`gemini-3.1-flash-lite` still passes 12/12, but needs 24 iterations on
-average on sympy-18189 against 8 with the hints (section 5.4). The exam code
-(`main`) sends no hints, so sympy-18189 is the exam task closest to the
-iteration limit.
+**Task hints (5.4)**: no effect on the pass rate (12/12 with and without);
+fewer iterations on sympy-18189 with them.
 
 **Repeated runs (2.4)**: on the current code, Gemini passes the most
 (SWE-bench 20/21, MBPP 20/20). `nemotron-3.5-super-120b` passes 18/21 on
@@ -1301,8 +1306,8 @@ sympy-14711, `cydonia-24b-v4.3` had 8 refused edits out of 9 (7 because
 `old_str` was not unique) before it anchored its `old_str` on the docstring
 line, and then passed. A refused edit costs an iteration, so this is where
 the extra iterations of these models go. An `edit_file` error that lists the
-line numbers of each match would probably reduce it; it is not implemented,
-so that the runs stay comparable.
+line numbers of each match would probably reduce it; tested later, it showed
+no meaningful effect (5.6).
 
 **10.3 A served chat template can hide the agent's instructions.**
 `riva-translate-4b` received about 260 input tokens at step 1, where the
@@ -1466,4 +1471,10 @@ The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/fina
 `bench/partial/` (2.3), `bench/repeated/` (2.4), `bench/rerun/` (the re-runs
 of the Mistral cells of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/search_code_rule/` (5.2),
 `bench/ablation/mbpp_prompt/` (5.3), `bench/ablation/hints/` (5.4) and
-`bench/ablation/fewer_turns/` (5.5).
+`bench/ablation/fewer_turns/` (5.5), `bench/ablation/workflow_rules/`,
+`bench/ablation/edit_line_numbers/` and `bench/ablation/stuck_note/` (5.6).
+
+## References
+
+[1] Gabinap, *agent_smith*, `BENCHMARK_REPORT.md`, section "What the agent is
+given", https://github.com/Gabinap/agent_smith

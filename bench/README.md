@@ -19,6 +19,9 @@ conditions. Each folder backs one part of the report.
 | `ablation/mbpp_prompt/` | 5.3 | MBPP prompt ablation: the same 20 tasks with the two-step and the one-step prompt |
 | `ablation/hints/` | 5.4 | Task hints ablation: 4 tasks, 3 runs with `hints_text` and 3 without |
 | `ablation/fewer_turns/` | 5.5 | Edit and test in one turn: `nemotron-3.5-super-120b` and `gemini-3.1-flash-lite`, 6 pool tasks, 3 runs each |
+| `ablation/workflow_rules/` | 5.6 | Prompt rules (reproduce first, read whole functions), `nemotron-3.5-super-120b`, 6 pool tasks, 2 runs each |
+| `ablation/edit_line_numbers/` | 5.6 | `edit_file` error with the line of each match, `nemotron-3.5-super-120b`, 6 pool tasks, 2 runs each |
+| `ablation/stuck_note/` | 5.6 | Note after 8 turns without an edit, `nemotron-3.5-super-120b`, 6 pool tasks, 3 runs each |
 
 The code version of each group of runs is in table 1.3 of the report.
 Every run counted in the report was validated with `moulinette_eval validate`.
