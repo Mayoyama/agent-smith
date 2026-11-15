@@ -11,11 +11,12 @@ timeouts (Mistral, Groq), which measure the provider rather than the model.
 Among the findings: what a model was trained for matters more than its size
 (two 4-8B models score 0/7 while a 4B one scores 6/7), a served chat template
 can hide the agent's instructions, and the same model can work through one
-provider's API and fail through another's. Four ablations are reported: a
+provider's API and fail through another's. Five ablations are reported: a
 one-step MBPP prompt halves the iterations and input tokens on the same 20
 tasks with no loss in pass rate, and removing the task's `hints_text` from the
 SWE-bench prompt costs no pass in 12 runs but nearly triples the iterations
-on the task whose hints contain the fix. Repeated runs (3 per task) compare
+on the task whose hints contain the fix; running the tests in the same turn
+as the edit cuts SWE-bench iterations by 11 to 18%. Repeated runs (3 per task) compare
 four candidates on the current code. All runs used free tiers; at list
 prices the priced runs would cost about $1.53.
 
@@ -699,8 +700,8 @@ truncated in the tool output.
 
 ## 5. Ablation study
 
-Four before/after comparisons of a change to the agent. 5.1 is measured on
-existing traces. 5.2, 5.3 and 5.4 are re-runs with the same tasks and the
+Five before/after comparisons of a change to the agent. 5.1 is measured on
+existing traces. 5.2 to 5.5 are re-runs with the same tasks and the
 same model, where only the change differs.
 
 ### 5.1 The `get_patch` fallback (measured on existing traces)
@@ -857,6 +858,33 @@ with and without).
 Limits: 3 runs per task and condition, one model. The models that pass
 sympy-18189 in 2.1 use 4 to 9 iterations; part of that may come from the
 hints.
+
+### 5.5 Edit and test in one turn (re-run)
+
+**Change** (`agent_swebench/prompt.py`, commit `46ceb67`): the prompt asks for
+`print(run_tests())` in the same code block as the `edit_file` call (if the
+edit fails, the tests do not run), and no longer asks to re-read the edited
+lines. **Protocol**: the 6 exam-pool tasks, 3 runs per task and model, no
+`hints_text`; "before" is 2.4.
+
+Average iterations per task:
+
+| Task | Nemotron before | Nemotron after | Gemini before | Gemini after |
+|---|---|---|---|---|
+| sympy-13480 | 6.7 | **4.0** | 7.0 | 6.7 |
+| xarray-4629 | 4.3 | **3.3** | 6.7 | 7.3 |
+| sympy-14711 | 16.7 | **10.7** | 21.3 | **11.0** |
+| django-11066 | 5.7 | **4.7** | 7.3 | 6.0 |
+| scikit-learn-13439 | 9.0 | **7.7** | 16.0 | 15.0 |
+| sympy-18189 | 30.0 | 29.0 | 21.7 | 25.3 |
+| **All 6 tasks** | 12.1 | **9.9** (−18%) | 13.3 | **11.9** (−11%) |
+| **Without 18189** | 8.5 | **6.1** (−28%) | 11.7 | **9.2** (−21%) |
+| Input tokens per run, without 18189 | 33,227 | **23,343** (−30%) | 51,538 | **39,663** (−23%) |
+| Passed | 15/18 | 16/18 | 17/18 | 17/18 |
+
+The pass rate is unchanged; passing runs are shorter. sympy-18189 does not
+change: its turns go into searching, not into editing and testing. The
+backing files are `bench/ablation/fewer_turns/<model>__<task>__fewerturns-run<n>.json`.
 
 ## 6. Conclusions
 
@@ -1437,4 +1465,5 @@ Details needed to reproduce a row:
 The backing `solution.json` files are in `bench/first_round/` (2.2), `bench/final/` (2.1),
 `bench/partial/` (2.3), `bench/repeated/` (2.4), `bench/rerun/` (the re-runs
 of the Mistral cells of 2.1), `bench/exam_pool_nov6/` (8.2), `bench/ablation/search_code_rule/` (5.2),
-`bench/ablation/mbpp_prompt/` (5.3) and `bench/ablation/hints/` (5.4).
+`bench/ablation/mbpp_prompt/` (5.3), `bench/ablation/hints/` (5.4) and
+`bench/ablation/fewer_turns/` (5.5).

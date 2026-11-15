@@ -18,6 +18,7 @@ conditions. Each folder backs one part of the report.
 | `ablation/search_code_rule/` | 5.2 | `search_code` rule ablation: scikit-learn-13439, 3 runs with the rule and 3 without |
 | `ablation/mbpp_prompt/` | 5.3 | MBPP prompt ablation: the same 20 tasks with the two-step and the one-step prompt |
 | `ablation/hints/` | 5.4 | Task hints ablation: 4 tasks, 3 runs with `hints_text` and 3 without |
+| `ablation/fewer_turns/` | 5.5 | Edit and test in one turn: `nemotron-3.5-super-120b` and `gemini-3.1-flash-lite`, 6 pool tasks, 3 runs each |
 
 The code version of each group of runs is in table 1.3 of the report.
 Every run counted in the report was validated with `moulinette_eval validate`.
