@@ -63,7 +63,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        generate = make_generate(args.model_name, args.provider_url)
+        generate = make_generate(args.model_name, args.provider_url, reply_tokens=1000)
     except (ValueError, RuntimeError) as e:
         print(f"LLM setup error: {e}", file=sys.stderr)
         sys.exit(1)
