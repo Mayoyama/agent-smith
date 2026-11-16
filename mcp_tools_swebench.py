@@ -377,7 +377,8 @@ def run_tests() -> str:
     Returns:
         The exit code, stdout and stderr, each under its own heading. Only the
         last 2000 characters of stderr are kept. Long output keeps its start
-        and end, with a marker saying how much was cut.
+        and end, with a marker saying how much was cut. A first line
+        'Tests: PASSED' or 'Tests: NOT PASSED' summarises the result.
 
     Raises:
         ToolError: If SWE_TASK_FILE is not set, the task file can't be loaded,
@@ -410,8 +411,14 @@ def run_tests() -> str:
         cut_chars = len(std_err) - STDERR_LENGTH_LIMIT
         std_err = f"[{cut_chars} chars cut]\n" + std_err[-STDERR_LENGTH_LIMIT:]
 
-    res_string = (f"exit code:\n{res.exit_code}\nstdout:\n"
-                  f"{res.std_out}\nstderr:\n{std_err}")
+    status = (
+        "PASSED" if swebench_tools.tests_passed(res.std_out) else "NOT PASSED"
+    )
+
+    res_string = (
+        f"Tests: {status}\nexit code:\n{res.exit_code}\nstdout:\n"
+        f"{res.std_out}\nstderr:\n{std_err}"
+    )
 
     return get_truncated_text(res_string)
 

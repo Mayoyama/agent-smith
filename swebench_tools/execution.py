@@ -1,6 +1,7 @@
 """Execution tools for the SWE-bench MCP server."""
 
 from .tool_workspace import WorkspaceBase, RunResults
+import re
 
 
 def run_command(
@@ -63,6 +64,48 @@ def run_tests(
         workspace.root_path,
         timeout,
     )
+
+
+def tests_passed(output: str) -> bool:
+    """Tell whether a test run's output shows every test passing.
+
+    Recognises three common test summary formats: "tests finished: N
+    passed, in Xs" (bin/test, e.g. sympy), "Ran N tests ... OK" (unittest,
+    e.g. Django) and "N passed in Xs" (pytest). Anything else counts as not
+    passed, so the model reads the output itself.
+
+    Args:
+        output: Stdout of the evaluation script.
+
+    Returns:
+        True only if a known summary reports passing tests and no failure.
+    """
+
+    bin_test_summary = re.search(
+        r"tests finished: \d+ passed"
+        r"(, \d+ (skipped|expected to fail))*, in",
+        output
+    )
+
+    if bin_test_summary:
+        return True
+
+    unittest_summary = re.search(r"Ran \d+ tests? in [\d.]+s\s*\n\s*OK\b",
+                                 output)
+
+    if unittest_summary:
+        return True
+
+    pytest_summary = re.search(r"=+ ([^=\n]*\bpassed\b[^=\n]*) =+",
+                               output)
+
+    if pytest_summary:
+        summary_text = pytest_summary.group(1)
+
+        if not re.search(r"failed|error|exception", summary_text):
+            return True
+
+    return False
 
 
 def get_patch(workspace: WorkspaceBase, timeout: int) -> str:
