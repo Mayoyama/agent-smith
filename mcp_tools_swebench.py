@@ -407,13 +407,15 @@ def run_tests() -> str:
 
     std_err = res.std_err
 
+    status = (
+        "PASSED"
+        if swebench_tools.tests_passed(res.std_out + "\n" + res.std_err)
+        else "NOT PASSED"
+    )
+
     if len(std_err) > STDERR_LENGTH_LIMIT:
         cut_chars = len(std_err) - STDERR_LENGTH_LIMIT
         std_err = f"[{cut_chars} chars cut]\n" + std_err[-STDERR_LENGTH_LIMIT:]
-
-    status = (
-        "PASSED" if swebench_tools.tests_passed(res.std_out) else "NOT PASSED"
-    )
 
     res_string = (
         f"Tests: {status}\nexit code:\n{res.exit_code}\nstdout:\n"
