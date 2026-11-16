@@ -22,6 +22,8 @@ conditions. Each folder backs one part of the report.
 | `ablation/workflow_rules/` | 5.6 | Prompt rules (reproduce first, read whole functions), `nemotron-3.5-super-120b`, 6 pool tasks, 2 runs each |
 | `ablation/edit_line_numbers/` | 5.6 | `edit_file` error with the line of each match, `nemotron-3.5-super-120b`, 6 pool tasks, 2 runs each |
 | `ablation/stuck_note/` | 5.6 | Note after 8 turns without an edit, `nemotron-3.5-super-120b`, 6 pool tasks, 3 runs each |
+| `ablation/reply_cap/` | 5.x | Reply cap raised from 400 to 1,000 tokens (SWE-bench), `nemotron-3.5-super-120b`, 6 pool tasks, 3 runs each |
+| `ablation/keep_observations/` | 5.x | Last 3 observations kept in full in the history, on top of the reply cap, `nemotron-3.5-super-120b`, 6 pool tasks, 3 runs each |
 
 The code version of each group of runs is in table 1.3 of the report.
 Every run counted in the report was validated with `moulinette_eval validate`.
