@@ -112,8 +112,8 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
         f"Repository: {task.repo}\n\n"
         f"Issue:\n{task.problem_statement}"
     )
-    if task.hints_text:
-        prompt += f"\n\nHints:\n{task.hints_text}"
+    #if task.hints_text:
+    #    prompt += f"\n\nHints:\n{task.hints_text}"
     return prompt
 
 
