@@ -29,6 +29,7 @@ MAX_INPUT_TOKENS = 300000
 MAX_OUTPUT_TOKENS = 10000
 MAX_TIME_SECONDS = 900
 TIME_MARGIN_SECONDS = 360
+KEEP_FULL_OBSERVATIONS = 3
 
 
 def fetch_patch(client: MCPClient) -> str:
@@ -91,7 +92,8 @@ if __name__ == "__main__":
                 exec_timeout=sandbox.config.max_execution_time_seconds,
                 api_url=args.provider_url,
                 model_name=args.model_name,
-                steps=steps
+                steps=steps,
+                keep_full=KEEP_FULL_OBSERVATIONS,
             )
         except Exception as e:
             result = RunResult(None, steps, f"crash: {e}")

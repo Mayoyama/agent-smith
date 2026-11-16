@@ -29,18 +29,34 @@ OLD_OBSERVATION_LIMIT: int = 600
 NO_CODE_REPLY_LIMIT: int = 150
 
 
-def compact_history(messages: Messages) -> None:
-    """Shorten every observation of the history except the last message.
+def compact_history(messages: Messages, keep_full: int = 0) -> None:
+    """Shorten the older observations of the history.
+
+    The last message is never cut. With keep_full, the last keep_full
+    observations are also kept in full, so the model still sees what it
+    read a few steps ago.
 
     Args:
         messages: Conversation history, changed in place.
+        keep_full: Number of most recent observations kept in full.
     """
 
-    for msg in messages[2:-1]:
-        content: str = msg["content"]
-        if (msg["role"] == "user" and content.startswith("Observation:")
-                and len(content) > OLD_OBSERVATION_LIMIT):
-            msg["content"] = (content[:OLD_OBSERVATION_LIMIT]
+    observation_indexes: list[int] = []
+
+    for index in range(2, len(messages) - 1):
+        msg = messages[index]
+
+        if msg["role"] == "user" and msg["content"].startswith("Observation:"):
+            observation_indexes.append(index)
+
+    if keep_full > 0:
+        observation_indexes = observation_indexes[:-keep_full]
+
+    for index in observation_indexes:
+        content: str = messages[index]["content"]
+
+        if len(content) > OLD_OBSERVATION_LIMIT:
+            messages[index]["content"] = (content[:OLD_OBSERVATION_LIMIT]
                               + "\n[old observation cut]")
 
 
@@ -128,6 +144,7 @@ def run_agent(
     steps: list[StepMetrics] | None = None,
     check_answer: Callable[[str], str | None] | None = None,
     no_code_hint: str = "",
+    keep_full: int = 0,
 ) -> RunResult:
     """Run the Thought -> Code -> Observation loop until an answer or a limit.
 
@@ -168,6 +185,8 @@ def run_agent(
             accepts every answer.
         no_code_hint: Extra sentence for the reminder sent when a reply has no
             code block; empty by default.
+        keep_full: Number of most recent observations kept in full in the
+            history; 0 keeps only the last message in full.
 
     Returns:
         A RunResult with the answer and the steps. Without an answer, error is
@@ -197,7 +216,7 @@ def run_agent(
         if total_in + next_in > max_input_tokens - INPUT_TOKEN_RESERVE:
             error = "max_input_tokens"
             break
-        compact_history(messages)
+        compact_history(messages, keep_full=keep_full)
         try:
             data, retries = generate(messages, max_output_tokens - total_out)
         except RequestFailed as e:
