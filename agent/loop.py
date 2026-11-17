@@ -268,7 +268,7 @@ def run_agent(
                 limit: int = exec_timeout
                 if exec_limit is not None:
                     limit = int(min(exec_timeout, exec_limit))
-                observation = format_observation(res, limit)
+                observation = format_observation(res, limit, code)
 
                 if note is not None:
                     observation = note + '\n' + observation

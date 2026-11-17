@@ -1,9 +1,10 @@
 """Format sandbox results into messages for the LLM."""
 
 from sandbox.results import Results
+import re
 
 
-def format_observation(res: Results, timeout: int) -> str:
+def format_observation(res: Results, timeout: int, code: str = "") -> str:
     """Turn a sandbox Results into a message for the LLM.
 
     Keeps the output, the last 3 lines of the error (except after a timeout,
@@ -13,6 +14,8 @@ def format_observation(res: Results, timeout: int) -> str:
     Args:
         res: Result of the sandbox execution.
         timeout: Time limit of the run in seconds, shown if it was hit.
+        code: Code that was run, used to name a tool call that was not
+            printed.
 
     Returns:
         The observation text, or a reminder to use print() if there is nothing
@@ -39,7 +42,18 @@ def format_observation(res: Results, timeout: int) -> str:
     if res.truncated:
         parts.append("(output truncated: print less or read fewer lines)")
 
-    return "\n".join(parts) or "(no output: use print() to see results)"
+    if parts:
+        return "\n".join(parts)
+
+    call = re.match(r"\s*([A-Za-z_]\w*)\(", code)
+
+    if call is not None and call.group(1) != "print":
+        name = call.group(1)
+
+        return (f"(no output: {name}(...) is not printed. To see what it "
+                f"returns, write print({name}(...)))")
+
+    return "(no output: use print() to see results)"
 
 
 def no_code_observation(extra_hint: str = "") -> str:
