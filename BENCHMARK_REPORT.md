@@ -705,7 +705,7 @@ existing traces. 5.2 to 5.5 are re-runs with the same tasks and the
 same model, where only the change differs. 5.6 lists three additions that
 showed no meaningful effect.
 
-### 5.1 The `get_patch` fallback (measured on existing traces)
+### 5.1 The `get_patch` fallback
 
 **Change**: when the loop ends without `final_answer`, the agent submits the
 repository diff (`get_patch`) instead of an empty solution.
@@ -713,9 +713,9 @@ repository diff (`get_patch`) instead of an empty solution.
 **Method**: the fallback only acts after the loop has ended, so removing it
 changes nothing in a run that ends with `final_answer`. For a run that ends
 without one, the solution becomes empty. We therefore took the existing
-traces of section 2.2 and blanked the `solution` field, then validated the
-result with the moulinette. We did not re-run the agent, so the comparison
-uses identical traces.
+traces of section 2.2 (2.2, 2 November code, before agent/extract.py) and blanked
+the `solution` field, then validated the result with the moulinette. We did not
+re-run the agent, so the comparison uses identical traces.
 
 | Run | With fallback | Without fallback |
 |---|---|---|
@@ -744,7 +744,7 @@ scikit-learn-13439 with an empty solution. It passed a path as `file_pattern`
 12 times in that run, and each time got a false "no lines matched" (see 8.2).
 
 **Protocol**: same task (scikit-learn-13439), same model
-(`gemini-3.1-flash-lite`), same code and limits, 3 runs per condition, run one
+(`gemini-3.1-flash-lite`), same code and limits as 5.1, 3 runs per condition, run one
 after the other because of the Gemini rate limit. The only difference between
 the two conditions is the rule. Measured on each solution file: moulinette
 result, iterations, number of observations containing "no lines matched",
