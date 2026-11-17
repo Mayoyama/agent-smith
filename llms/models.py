@@ -1,6 +1,7 @@
 """Pydantic models for the LLM provider configuration."""
 
 from pydantic import BaseModel, Field, model_validator, field_validator
+from typing import Any
 
 
 class LLMProvider(BaseModel):
@@ -12,11 +13,15 @@ class LLMProvider(BaseModel):
             with http:// or https://.
         key_prefix: Prefix of the environment variables that hold the
             provider's API keys, e.g. GROQ_API_KEY.
+        extra_body: Extra fields added to every request body sent to this
+            provider, e.g. to switch off a model's reasoning; empty by
+            default.
     """
 
     name: str = Field(min_length=1)
     base_url: str = Field(min_length=5)
     key_prefix: str = Field(min_length=1)
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def validate_url(self) -> "LLMProvider":
@@ -54,11 +59,13 @@ class LLMModelData(BaseModel):
             with http:// or https://.
         model_name: Model to request, e.g. "openai/gpt-oss-20b".
         api_keys: The provider's API keys, tried in this order; at least one.
+        extra_body: Extra fields added to every request body.
     """
 
     base_url: str = Field(min_length=5)
     model_name: str = Field(min_length=1)
     api_keys: list[str] = Field(min_length=1)
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("base_url")
     @classmethod

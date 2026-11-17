@@ -23,7 +23,12 @@
         {
             "name": "nvidia",
             "base_url": "https://integrate.api.nvidia.com/v1",
-            "key_prefix": "NVIDIA_API_KEY"
+            "key_prefix": "NVIDIA_API_KEY",
+            "extra_body": {
+                "chat_template_kwargs": {
+                    "enable_thinking": false
+                }
+            }
         }
     ]
 }

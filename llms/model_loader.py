@@ -115,6 +115,7 @@ def validate_llm_providers(
         base_url=llm_provider.base_url,
         model_name=model_name,
         api_keys=api_keys,
+        extra_body=llm_provider.extra_body,
     )
 
     return model_data

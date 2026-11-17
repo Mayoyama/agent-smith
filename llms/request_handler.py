@@ -163,6 +163,9 @@ def send_request(
     if max_tokens is not None:
         body["max_tokens"] = max_tokens
 
+    for key, val in model_data.extra_body.items():
+        body[key] = val
+
     start: float = time.perf_counter()
     reply = requests.post(url=url, headers=headers,
                           json=body, timeout=timeout_limit)
