@@ -1,6 +1,7 @@
 """Code search tools for the SWE-bench MCP server."""
 
 from .tool_workspace import WorkspaceBase, RunResults
+import posixpath
 
 
 def search_code(
@@ -14,7 +15,9 @@ def search_code(
     Args:
         workspace: Workspace the search runs in; its root is searched.
         pattern: Extended regex (grep -E) to search for.
-        file_pattern: Shell-style pattern for which files to search.
+        file_pattern: Shell-style pattern for which files to search; if
+            it contains a '/', the part before the last '/' is the
+            directory searched.
         timeout: Seconds before the search is stopped.
 
     Returns:
@@ -27,13 +30,38 @@ def search_code(
         RuntimeError: If grep can't be started or times out.
     """
 
+    search_root = workspace.root_path
+    include = file_pattern
+
+    if "/" in file_pattern:
+        directory, include = posixpath.split(file_pattern)
+
+        if directory.startswith("/testbed"):
+            directory = directory[len("/testbed"):]
+
+        kept_parts: list[str] = []
+
+        for part in directory.split("/"):
+            if "*" in part or "?" in part:
+                break
+
+            kept_parts.append(part)
+
+        directory = "/".join(kept_parts)
+
+        search_root = posixpath.join(workspace.root_path,
+                                     directory.lstrip("/"))
+
+        if not include:
+            include = "*"
+
     result: RunResults = workspace.execute_command(
         [
             "grep",
             "-rnIE",
-            "--include=" + file_pattern,
+            "--include=" + include,
             pattern,
-            workspace.root_path,
+            search_root,
         ],
         workspace.root_path,
         timeout,
