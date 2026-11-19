@@ -52,7 +52,8 @@ def parse_python(text: str) -> Match | None:
     match = CODE_BLOCK.search(text)
     if match is None or not match.group(1).strip():
         return None
-    return match.start(), match.end(), match.group(1).strip()
+    code = remove_unmatched_brackets(match.group(1).strip())
+    return match.start(), match.end(), code
 
 
 def parse_value(raw: str) -> Any:
@@ -205,9 +206,10 @@ def get_conversion_note(text: str) -> str | None:
 
     Returns:
         For a non-Python format, a note naming the format and giving the
-        Python code that was run. For a python block whose tag is not
-        lowercase, a note asking for the lowercase tag. None if the reply has
-        no match or is a correct python block.
+        Python code that was run. For a python block with an unmatched ')'
+        that was removed, a note saying so. For a python block whose tag is
+        not lowercase, a note asking for the lowercase tag. None if the reply
+        has no match or is a correct python block.
     """
 
     match = first_match(text)
@@ -216,6 +218,10 @@ def get_conversion_note(text: str) -> str | None:
         return None
 
     if match == parse_python(text):
+        raw_match = CODE_BLOCK.search(text)
+        if raw_match is not None and raw_match.group(1).strip() != match[2]:
+            return ("Note: your code had an unmatched ')' that was removed "
+                    "before it ran. Check your brackets.")
         opening = OPEN_BLOCK.search(text)
         tag: str | None = opening.group(1) if opening else None
         if tag is None or tag in ("python", "py"):
@@ -249,3 +255,43 @@ def has_unclosed_block(text: str) -> bool:
         return False
 
     return OPEN_BLOCK.search(text) is not None
+
+
+def remove_unmatched_brackets(code: str) -> str:
+    """Remove unmatched closing brackets that stop the code from compiling.
+
+    Up to 3 brackets are removed, one per compile attempt.
+
+    Args:
+        code: Python code from a code block.
+
+    Returns:
+        The code without the unmatched brackets if it then compiles,
+        otherwise the code unchanged.
+    """
+
+    original = code
+
+    for _ in range(3):
+        try:
+            compile(code, "<llm_code>", "exec")
+            return code
+        except ValueError:
+            return original
+        except SyntaxError as error:
+            if error.msg != "unmatched ')'":
+                return original
+            if error.lineno is None or error.offset is None:
+                return original
+
+            lines = code.split("\n")
+            line = lines[error.lineno - 1]
+            column = error.offset - 1
+
+            if column >= len(line) or line[column] != ")":
+                return original
+
+            lines[error.lineno - 1] = line[:column] + line[column + 1:]
+            code = "\n".join(lines)
+
+    return original

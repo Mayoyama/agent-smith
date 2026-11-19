@@ -226,7 +226,7 @@ def search_code(pattern: str, file_pattern: str) -> str:
     Args:
         pattern: Regex to search for, e.g. "def validate_\\w+".
         file_pattern: Shell-style pattern for which files to search, e.g.
-            "*.py". A path to a file or a directory is also accepted.
+            "*.py".
 
     Returns:
         The number of matches, then one "/absolute/path:<line_number>

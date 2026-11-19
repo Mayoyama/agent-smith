@@ -117,8 +117,25 @@ def edit_file(
         raise ValueError(msg)
 
     if occurrences > 1:
-        raise ValueError(f"old_str found {occurrences} times in "
-                         f"{filepath}; Unique string required")
+        found_lines = []
+        search_start = 0
+
+        for _ in range(occurrences):
+            pos = content.find(old_str, search_start)
+            line_number = content.count('\n', 0, pos) + 1
+            found_lines.append(str(line_number))
+            search_start = pos + len(old_str)
+
+        msg = (f"old_str found {occurrences} times in {filepath}, at "
+               f"line(s) {', '.join(found_lines[:5])}")
+
+        if len(found_lines) > 5:
+            msg += f" (and {len(found_lines) - 5} more)"
+
+        msg += (": read_file around the one you mean and add the line "
+                "above or below it so old_str appears once")
+
+        raise ValueError(msg)
 
     found = content.count('\n', 0, content.find(old_str)) + 1
     new_content = content.replace(old_str, new_str, 1)

@@ -25,7 +25,9 @@ SYSTEM = (
     "search_function_or_class_definition_in_code, find_references, "
     "then read_file on a small line range.\n"
     "- search_code(pattern, file_pattern): file_pattern is a file name "
-    "pattern such as \"*.py\" or \"pipeline.py\"."
+    "pattern such as \"*.py\" or \"pipeline.py\", never a path. A path "
+    "finds nothing and prints 'no lines matched', even if the text is "
+    "there.\n"
     "- Fix the root cause with the smallest possible edit_file call. "
     "old_str must match the file exactly and appear once. Put "
     "print(run_tests()) in the same code block, right after the "
@@ -46,10 +48,11 @@ SYSTEM = (
     "- If tests fail, fix your edit and run run_tests again.\n"
     "- Your turns are limited: do not read whole files and do not "
     "repeat a search.\n"
-    "- run_tests already runs the task's real tests. When its output says "
-	"'N passed' with no failures, you are done: do not run it again and do "
-	"not write your own checks. Your NEXT turn must be "
-	"final_answer(get_patch()), called inside a python code block.\n"
+    "- Never call final_answer before print(run_tests()) has shown the "
+    "tests passing.\n"
+    "- Once run_tests shows the tests passing, your NEXT turn must be "
+    "final_answer(get_patch()), called inside a python code block, "
+    "never as a tag or in plain text.\n"
     "\n"
     "Example:\n"
     "\n"
@@ -87,7 +90,7 @@ SYSTEM = (
     "3 passed in 0.5s\n"
     "stderr:\n"
     "\n"
-    "Thought: The tests pass, so I must submit the patch now.\n"
+    "Thought: The tests pass, so I submit the patch.\n"
     "```python\n"
     "final_answer(get_patch())\n"
     "```<end_code>\n"
@@ -109,7 +112,8 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
         f"Repository: {task.repo}\n\n"
         f"Issue:\n{task.problem_statement}"
     )
-
+    #if task.hints_text:
+    #    prompt += f"\n\nHints:\n{task.hints_text}"
     return prompt
 
 
