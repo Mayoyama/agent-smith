@@ -57,7 +57,7 @@ def compact_history(messages: Messages, keep_full: int = 0) -> None:
 
         if len(content) > OLD_OBSERVATION_LIMIT:
             messages[index]["content"] = (content[:OLD_OBSERVATION_LIMIT]
-                              + "\n[old observation cut]")
+                                          + "\n[old observation cut]")
 
 
 @dataclass

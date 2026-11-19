@@ -36,23 +36,55 @@ def to_python_call(name: str, args: dict[str, Any]) -> str:
     return f"result = {name}({params})\nprint(result)"
 
 
+def strip_leading_thought_lines(code: str) -> str:
+    """Remove 'Thought:' lines written at the start of a code block.
+
+    Args:
+        code: Stripped code from a code block.
+
+    Returns:
+        The code without its leading 'Thought:' lines, stripped.
+    """
+
+    lines = code.split("\n")
+    first_code_line = 0
+
+    for line in lines:
+        if not line.strip().startswith("Thought:"):
+            break
+        first_code_line += 1
+
+    return "\n".join(lines[first_code_line:]).strip()
+
+
 def parse_python(text: str) -> Match | None:
     """Find the first fenced code block tagged python, py or nothing.
 
-    The tag is matched in any case, e.g. ```Python.
+    The tag is matched in any case, e.g. ```Python. 'Thought:' lines at the
+    start of a block are skipped. If a block holds only 'Thought:' lines,
+    as when the model writes its Thought inside a fence and then opens a
+    second one, the search goes on from that block's closing fence.
 
     Args:
         text: Raw LLM answer.
 
     Returns:
         The block's start and end positions in text and its stripped code, or
-        None if there is no block or its code is empty.
+        None if there is no block with code.
     """
 
-    match = CODE_BLOCK.search(text)
-    if match is None or not match.group(1).strip():
-        return None
-    return match.start(), match.end(), match.group(1).strip()
+    search_start = 0
+
+    while True:
+        match = CODE_BLOCK.search(text, search_start)
+        if match is None:
+            return None
+
+        code = strip_leading_thought_lines(match.group(1).strip())
+        if code:
+            return match.start(), match.end(), code
+
+        search_start = match.end() - 3
 
 
 def parse_value(raw: str) -> Any:
@@ -206,8 +238,9 @@ def get_conversion_note(text: str) -> str | None:
     Returns:
         For a non-Python format, a note naming the format and giving the
         Python code that was run. For a python block whose tag is not
-        lowercase, a note asking for the lowercase tag. None if the reply has
-        no match or is a correct python block.
+        lowercase, a note asking for the lowercase tag. For a python block
+        whose 'Thought:' lines were skipped, a note saying so. None if the
+        reply has no match or is a correct python block.
     """
 
     match = first_match(text)
@@ -216,6 +249,11 @@ def get_conversion_note(text: str) -> str | None:
         return None
 
     if match == parse_python(text):
+        raw_match = CODE_BLOCK.search(text)
+        if raw_match is not None and raw_match.group(1).strip() != match[2]:
+            return ("Note: your code block started with a 'Thought:' line, "
+                    "which was skipped. Write the Thought before the code "
+                    "block, never inside it.")
         opening = OPEN_BLOCK.search(text)
         tag: str | None = opening.group(1) if opening else None
         if tag is None or tag in ("python", "py"):

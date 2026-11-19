@@ -44,9 +44,8 @@ SYSTEM = (
     "Read the test results in the output (ok, F, E, FAIL, "
     "'x passed, y failed'), never the exit code.\n"
     "- If tests fail, fix your edit and run run_tests again.\n"
-    "- Your turns are limited: do not read whole files, do not repeat a "
-    "search and do not re-read unchanged lines, except after edit_file "
-    "fails.\n"
+    "- Your turns are limited: do not read whole files and do not "
+    "repeat a search.\n"
     "- Never call final_answer before print(run_tests()) has shown the "
     "tests passing.\n"
     "- Once run_tests shows the tests passing, your NEXT turn must be "
@@ -111,8 +110,7 @@ def build_prompt(task: SWEBenchTaskInput) -> str:
         f"Repository: {task.repo}\n\n"
         f"Issue:\n{task.problem_statement}"
     )
-    #if task.hints_text:
-    #    prompt += f"\n\nHints:\n{task.hints_text}"
+
     return prompt
 
 
