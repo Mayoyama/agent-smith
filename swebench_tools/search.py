@@ -109,6 +109,14 @@ def search_function_or_class_definition_in_code(
         RuntimeError: If grep can't be started or times out.
     """
 
+    name = name.strip()
+
+    for prefix in ("async def ", "def ", "class "):
+        if name.startswith(prefix):
+            name = name[len(prefix):].strip()
+
+            break
+
     if not name.isidentifier():
         raise ValueError(f"'{name}' is not a valid identifier")
 

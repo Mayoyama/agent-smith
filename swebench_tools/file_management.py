@@ -154,6 +154,12 @@ def list_files(
         RuntimeError: If a command can't be started.
     """
 
+    if "/" in pattern:
+        pattern = pattern.split("/")[-1]
+
+    if pattern == "":
+        pattern = "*"
+
     workdir_check: RunResults = workspace.execute_command(
         ["test", "-d", directory],
         workspace.root_path,
@@ -161,6 +167,15 @@ def list_files(
     )
 
     if workdir_check.exit_code != 0:
+        file_check: RunResults = workspace.execute_command(
+            ["test", "-f", directory],
+            workspace.root_path,
+            timeout,
+        )
+
+        if file_check.exit_code == 0:
+            return f"1 files\n{directory}\n"
+
         raise ValueError(f"{directory} does not exist or is not a directory")
 
     res: RunResults = workspace.execute_command(
