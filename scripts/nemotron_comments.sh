@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nemotron on the 6 exam-pool tasks, 3 rounds, branch test/hint-comments (hints as issue comments).
+# Nemotron on the 6 exam-pool tasks, x rounds.
 MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b
 URL=https://integrate.api.nvidia.com/v1
 N=nemotron-3.5-super-120b
